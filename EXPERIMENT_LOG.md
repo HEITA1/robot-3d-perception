@@ -112,5 +112,37 @@
 - **过程软件修复记录**（不影响结论）：knnMatch 解包错误、RANSAC 后补全内点精化、drawMatches 参数序与 trainIdx 重映射、RGB/BGR 写图修正。
 - **Decision**：P2.0 Exit Criteria 满足。**P2.1 需要你批准方案 B 升级**（跨场景评测要求视点覆盖的模板库；同场景对照不构成合格 baseline——参考与评测同分布，会高估性能）。
 
+---
+
+## EXP-003 — P2.1：多视角渲染模板库（方案 B）
+
+- **日期**：2026-08-30
+- **Phase**：2（P2.1）
+- **Question**：增加 reference viewpoint coverage（16 视角渲染模板库）后，P2.0 暴露的跨场景视点覆盖问题是否得到改善？
+- **Hypothesis**：视点覆盖补齐后，in-mask 匹配显著增加，solver success > 0。
+- **Setup**（除参考库来源外与 P2.0 严格一致：同 obj5、同 10 评测帧、同 SIFT/ratio/PnP 参数、同 ADD<0.1d）：
+  - **纹理核实**：BOP PLY 原生自带 `texture_u/v` 属性 + `TextureFile obj_000005.png`（4096²），Open3D 标准读取器不暴露 → 直接解析 ASCII PLY（模型自身数据，无新依赖、无纹理重建）
+  - 渲染：Open3D `RaycastingScene` CPU 光线投射（无 GPU/OpenGL），Fibonacci 确定性 16 视角，radius 0.9 m，K 与数据集一致
+  - 材质两版：①平铺纹理 ②Lambert 头灯明暗（约束 1 预批的"简单可视化材质"）
+  - 库规模：595 descriptors / 16 视角（每视角 25–157 kp）
+  - 入口：`python -m r3p.experiments.run_p2_1 --config configs/p2_1.yaml`（runs: `outputs/p2_1/20260830-144219`、`-144843`）
+- **Result**：
+  | 材质 | solver success | pose success | good 匹配 | in-mask 匹配 |
+  | --- | ---: | ---: | ---: | ---: |
+  | 平铺纹理 | **0/10** | 0/10 | 23–46 | 0–5 |
+  | Lambert 明暗 | **0/10** | 0/10 | 29–70 | 0–8 |
+- **Diagnosis**：
+  1. 模板自一致性 3.13e-13 px（渲染 3D/相机位姿/pixel 完全自洽）→ 非 geometry bug；
+  2. 渲染↔渲染：view0 自匹配 59 good、相邻视角 27 good → 模板库内部可匹配；
+  3. **渲染→照片**（frame 1044，P2.0 对照中最易帧）：good=28 / **in-mask=2**，而真实参考同帧 94/52 →
+     **render→real 域差主导**：光照复杂性、镜面高光、传感器噪声、色彩响应——平铺与 Lambert 均无法弥合。
+- **Conclusion**（三层）：
+  - 软件正确性：✅（42/42 测试；模板重投影 3e-13 px；z-depth 语义修正）
+  - 算法结果：**视点覆盖单独不解决问题**——P2.1 = 0/10（两版材质）；域差是比视点覆盖更强的瓶颈
+  - 研究结论：SIFT 描述子在 render→real 域间本质上脆弱；用简单材质渲染模板**不是**可行的跨场景参考来源
+- **Decision**：按约束"需改变模板生成策略时先汇报"——**停止，P2.1 后续路线待批准**（见 Milestone Report 选项）。已知最有希望的廉价选项：**真实参考库扩充**（scene 52 全部 75 帧 ≈ 15k descriptors，跨场景零帧重叠、零新依赖、与 P2.0/P2.1 完全可比）；架构级备选：深度/几何初值路线（需批准）。
+- **过程软件修复**：z-depth vs 光线距离语义、下标赋值 RHS 先求值导致 walrus 未绑定、材质法线插值。
+
+
 
 

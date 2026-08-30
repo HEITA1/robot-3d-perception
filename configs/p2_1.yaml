@@ -1,0 +1,36 @@
+# P2.1 feasibility: multi-view rendered template library -> SIFT -> PnP-RANSAC.
+# Plan B: replaces P2.0's 3-frame real-image reference with a CPU-rendered
+# multi-view library to fix the viewpoint-coverage failure (EXP-002).
+# Everything else is IDENTICAL to P2.0 for comparability (same obj, eval scene,
+# same 10 frames, same SIFT/ratio/PnP params, same ADD<0.1d success definition).
+
+data:
+  root: data/ycbv
+  model_ply: models/obj_000005.ply   # obj 5 mustard_bottle
+
+reference:
+  obj_id: 5
+  n_views: 16            # start of the 12-20 budget; extend only if needed
+  radius_m: 0.9          # camera distance from model center
+
+evaluation:
+  scene: 50
+  n_frames: 10
+  obj_id: 5
+
+sift:
+  ratio: 0.75            # identical to P2.0
+
+pnp:                     # identical to P2.0
+  min_inliers: 6
+  reproj_error_px: 3.0
+  iterations: 10000
+  confidence: 0.99
+  rng_seed: 0
+
+success:
+  add_diameter_frac: 0.1 # identical to P2.0
+
+output:
+  root: outputs
+  n_draw_matches: 2

@@ -2,6 +2,15 @@
 
 > 重要实现变化（不是每个 commit 都记）。格式：日期 + Phase + 变更。
 
+## 2026-08-30 — Phase 2 / P2.1：多视角渲染模板库（方案 B，阴性结果）
+
+- 纹理核实：BOP PLY 原生带 texture_u/v + 4096² 纹理 PNG；Open3D 读取器不暴露 → 直接解析 ASCII PLY（模型自身数据，零新依赖）。
+- 新增 `src/r3p/pose/render_templates.py`：RaycastingScene CPU 渲染（Fibonacci 确定性视角、每像素 UV 采样 + 模型帧 3D + z-depth、Lambert 头灯简单材质）。
+- 新增 `run_p2_1.py` + `configs/p2_1.yaml`：除参考库来源外与 P2.0 严格可比。
+- **结果（EXP-003）**：平铺 0/10、Lambert 0/10（in-mask 0–8）——视点覆盖未解决问题；诊断确认 **render→real 域差主导**（渲染↔渲染可匹配，渲染→照片 in-mask≈2 vs 真实参考 52）。
+- 新增渲染一致性回归测试 4 项（已知视角重投影 3e-13 px、Fibonacci 确定性、单位、防零样本）；全套 42/42。
+- 模板生成策略需变更：停止并汇报，P2.1 后续路线待批准。
+
 ## 2026-08-30 — Phase 2 / P2.0：SIFT + PnP-RANSAC feasibility spike
 
 - 新增 `src/r3p/pose/sift_pnp.py`：深度提升 SIFT 参考库构建（GT 仅用于离线模板）、

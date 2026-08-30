@@ -15,15 +15,18 @@
 | `src/r3p/evaluation/metrics.py` | ADD / ADD-S / 平移误差 / 旋转误差（纯 numpy + scipy cdist） | [x] |
 | `src/r3p/evaluation/evaluator.py` | 逐帧累积 → 按物体汇总表 | [x] |
 | `src/r3p/pose/sift_pnp.py` | P2.0 经典基线构件：SIFT 参考库（深度提升）/ knn+ratio 匹配 / PnP-RANSAC+精化 | [x] |
+| `src/r3p/pose/render_templates.py` | P2.1 渲染模板：ASCII PLY(UV/法线) 解析 + RaycastingScene CPU 渲染 + Fibonacci 视角 + Lambert 材质 | [x] |
 | `src/r3p/visualization/viz.py` | matplotlib 静态 PNG（headless 安全）+ Open3D 交互（可选） | [x] |
 | `src/r3p/experiments/run_smoke.py` | Phase 0 统一入口 smoke 实验 | [x] |
 | `src/r3p/experiments/run_ycbv_demo.py` | Phase 1 真实数据 demo：RGB-D→点云→GT 投影→PNG | [x] |
 | `src/r3p/experiments/run_p2_0.py` | P2.0 spike 统一入口（10 帧 SIFT+PnP，per-frame CSV + overlay + metrics.json） | [x] |
 | `configs/smoke.yaml` | smoke 实验配置 | [x] |
 | `configs/p2_0.yaml` | P2.0 spike 配置（参考/评测场景、PnP/成功阈值参数） | [x] |
+| `configs/p2_1.yaml` | P2.1 渲染模板配置（16 视角/radius，其余与 P2.0 一致） | [x] |
 | `scripts/verify_ycbv_data.py` | 数据集下载后完整性验证（GT 存在性/文件配对/往返/GT 叠加） | [x] |
 | `scripts/p2_0_intra_scene_control.py` | P2.0 归因对照实验（同场景参考库，排除评测帧） | [x] |
-| `tests/` | se3/metrics/camera/synthetic/config（28）+ 真实 YCB-V（7）+ pose 合成回归（3），共 38 项 | [x] |
+| `src/r3p/experiments/run_p2_1.py` | P2.1 统一入口（渲染模板库 → SIFT → PnP，与 P2.0 可比） | [x] |
+| `tests/` | se3/metrics/camera/synthetic/config（28）+ 真实 YCB-V（7）+ pose 合成回归（3），共 42 项 | [x] |
 | PnP / RANSAC（计划 `geometry/solver.py`） | 2D-3D 位姿求解 | [ ] Phase 2 |
 | ICP（计划 `registration/icp.py`） | 点云配准 / 位姿精化 | [ ] Phase 2 |
 | RGB/点云编码器 + 融合 + 位姿头（计划 `models/`） | 学习基线 | [ ] Phase 3 |
