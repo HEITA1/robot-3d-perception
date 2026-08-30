@@ -15,6 +15,8 @@
 | `src/r3p/evaluation/metrics.py` | ADD / ADD-S / 平移误差 / 旋转误差（纯 numpy + scipy cdist） | [x] |
 | `src/r3p/evaluation/evaluator.py` | 逐帧累积 → 按物体汇总表 | [x] |
 | `src/r3p/pose/sift_pnp.py` | P2.0 经典基线构件：SIFT 参考库（深度提升）/ knn+ratio 匹配 / PnP-RANSAC+精化 | [x] |
+| `src/r3p/learn/` | P3.0-S 学习 spike：umeyama/RANSAC、CoordNet（~59k 参数逐点 canonical 回归）、合成数据生成（渲染器直出标签） | [x] |
+| `src/r3p/experiments/run_p3_0.py` | gen/sanity/gate1 子命令（sanity 为训练前强制门） | [x] |
 | `src/r3p/pose/geo_init.py` | P2.3 几何基线：mask→点云（确定性排序）→PCA→24 假设→point-to-plane ICP（推理零 GT pose）；`estimate_pose` = Phase 3 可替换推理接口 | [x] |
 | `src/r3p/pose/render_templates.py` | P2.1 渲染模板：ASCII PLY(UV/法线) 解析 + RaycastingScene CPU 渲染 + Fibonacci 视角 + Lambert 材质 | [x] |
 | `src/r3p/visualization/viz.py` | matplotlib 静态 PNG（headless 安全）+ Open3D 交互（可选） | [x] |

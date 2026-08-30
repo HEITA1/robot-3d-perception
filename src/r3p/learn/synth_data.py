@@ -17,6 +17,7 @@ from pathlib import Path
 
 import numpy as np
 
+from ..geometry.se3 import apply as apply_T
 from ..pose.render_templates import TexturedModel, render_view
 
 
@@ -39,9 +40,17 @@ def generate_samples(model: TexturedModel, K: np.ndarray, image_size, out_dir: P
             continue
         choose = rng.choice(len(tpl.points_model), size=n_points, replace=False)
         rgb = tpl.rgb[tpl.pixels[choose][:, 1].astype(int), tpl.pixels[choose][:, 0].astype(int)]
+        # xyz must be CAMERA-frame (this is what the network observes on real
+        # data); coords stay in the canonical/model frame. The previous version
+        # stored model-frame points here, corrupting the training target.
+        xyz_cam = apply_T(tpl.T_cam_model, tpl.points_model[choose])
+        # per-sample data-integrity guard: labels and inputs must be consistent
+        err = float(np.abs(xyz_cam - (tpl.points_model[choose] @ tpl.T_cam_model[:3, :3].T
+                                      + tpl.T_cam_model[:3, 3])).max())
+        assert err < 1e-9, f"coordinate-frame inconsistency in generated sample: {err}"
         np.savez_compressed(
             out / f"sample_{generated:04d}.npz",
-            xyz=tpl.points_model[choose].astype(np.float32),
+            xyz=xyz_cam.astype(np.float32),
             rgb=rgb.astype(np.uint8),
             coords=tpl.points_model[choose].astype(np.float16),  # canonical labels (model frame)
             T=tpl.T_cam_model.astype(np.float64),

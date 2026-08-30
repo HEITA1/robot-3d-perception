@@ -2,6 +2,16 @@
 
 > 重要实现变化（不是每个 commit 都记）。格式：日期 + Phase + 变更。
 
+## 2026-08-30 — Phase 3 / P3.0-S：最小学习对应 spike（Gate 1 PASS；首跑 VOID）
+
+- 新增 `src/r3p/learn/`（umeyama+RANSAC、CoordNet ~59k 参数、合成数据生成）与 `run_p3_0` 入口
+  （gen/sanity/gate1）；新增 torch 2.13.0+cpu 依赖（已批准）。
+- **数据 bug 与修复**：`synth_data.py` 曾将 xyz 误存模型系点（与标签同数组）→ 第一次 Gate 1
+  判定 **VOID**（训练目标不可学，全部数字作废）。修复为相机系 xyz + 每样本完整性断言
+  + `sanity` 子命令（250 样本三项检查全部 ~0.01–0.04mm）。
+- 修正后 **Gate 1 PASS**：train ADD 4.8mm（≤5）、对齐残差 2.7mm（≤3）、loss 比 0.081（≤0.2）。
+- 新增 5 项测试（umeyama 恢复/RANSAC 外点/网络形状与规模/过拟合烟雾/归一化往返）；52/52 全绿。
+
 ## 2026-08-30 — Phase 2 / P2.4：Classical baseline 工程收尾 —— **Phase 2 Complete**
 
 - 全量工程验证：obj5 scene 50 全 75 帧 + obj13 scene 53 全 75 帧（参数与 P2.3-S 完全冻结一致）。

@@ -158,6 +158,37 @@ def cmd_gate1(args) -> None:
     log(f"GATE1: {'PASS' if results['passed'] else 'FAIL'}")
 
 
+def cmd_sanity(args) -> None:
+    """Mandatory data integrity gate before any training (added after the
+    P3.0-S coordinate-frame bug): frame consistency + metric sanity on ALL
+    samples of a split set."""
+    from ..learn.umeyama import umeyama_alignment
+    samples = _load_split(Path(args.data) / args.split)
+    assert len(samples) > 0, "no samples (anti-false-pass)"
+    frame_err, add_err, umey_err = [], [], []
+    for s in samples:
+        T, coords, xyz = s["T"], s["coords"], s["xyz"]
+        frame_err.append(float(np.abs(xyz - (coords @ T[:3, :3].T + T[:3, 3])).max()))
+        add_err.append(float(_add_loss(coords[None], coords[None], xyz[None], T[None])) * 1e3)
+        R, t = umeyama_alignment(xyz, coords)  # perfect correspondence given
+        umey_err.append(float(np.linalg.norm(xyz @ R.T + t - coords, axis=1).max()) * 1e3)
+    res = {
+        "n_samples": len(samples),
+        "frame_consistency_max_err_m": float(np.max(frame_err)),
+        "add_gt_pose_mean_mm": float(np.mean(add_err)),
+        "add_gt_pose_max_mm": float(np.max(add_err)),
+        "umeyama_gt_corr_max_err_mm": float(np.max(umey_err)),
+    }
+    # tolerances absorb float16 label rounding (~0.01-0.04mm); the coordinate-
+    # frame bug this gate guards against produces errors of ~600-870mm
+    res["passed"] = bool(res["frame_consistency_max_err_m"] < 1e-3
+                         and res["add_gt_pose_max_mm"] < 0.1
+                         and res["umeyama_gt_corr_max_err_mm"] < 0.1)
+    print(json.dumps(res, indent=2))
+    print(f"DATA SANITY: {'PASS' if res['passed'] else 'FAIL'}")
+    assert res["passed"], "data sanity check FAILED — training must not start"
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -173,8 +204,11 @@ def main() -> None:
     t.add_argument("--data", default="data_synth/bottle")
     t.add_argument("--seed", type=int, default=0)
     t.add_argument("--out", default="outputs/p3_0/gate1")
+    y = sub.add_parser("sanity")
+    y.add_argument("--data", default="data_synth/bottle")
+    y.add_argument("--split", default="train")
     args = parser.parse_args()
-    {"gen": cmd_gen, "gate1": cmd_gate1}[args.cmd](args)
+    {"gen": cmd_gen, "gate1": cmd_gate1, "sanity": cmd_sanity}[args.cmd](args)
 
 
 if __name__ == "__main__":

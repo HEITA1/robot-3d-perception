@@ -216,6 +216,35 @@
 
 ---
 
+## EXP-007 — P3.0-S Gate 1（第一次结果 VOID；修正后 PASS）
+
+- **日期**：2026-08-30
+- **Phase**：3（P3.0-S）
+
+### 第一次 Gate 1：**INVALID / VOID — caused by confirmed synthetic-data coordinate-frame bug**
+
+- 数据生成实现错误：`synth_data.py` 将 `xyz` 字段误存为**模型系**点（与 canonical 标签同源），
+  正确值应为**相机系**（`xyz = T_cam_model @ points_model`）。
+- 证据：npz 中 `xyz` 与 `coords` 最大差 3.0e-05（同一数组）；`T @ coords` 与存档 `xyz` 相差 0.87m
+  （= 相机距离量级）；`ADD(GT pose, GT labels) = 624.9mm`（应 ~0）。
+- 因此训练目标为逐点不可学的伪任务，下列数字**全部作废、不得引用**：
+  train ADD 86mm / 0/200 达标 / aligned residual 10.9mm / 损失平台 90mm /
+  “roll 歧义签名”假设 / “欠拟合”判断。诊断时另一 ADD-S 代理脚本亦有误，已弃用。
+
+### 修正后 Gate 1（数据 sanity PASS 后，同冻结配置、同种子重跑）：**PASS**
+
+- **Data sanity（250/250 样本）**：frame consistency max 3.5e-05 m；ADD(GT pose, GT labels)
+  mean 0.012 / max 0.015 mm；Umeyama(GT correspondence) max 0.037 mm —— 全部为 float16 舍入级。
+- 三项冻结判据：
+  1. train per-point ADD mean = **4.824 mm ≤ 5mm** ✅（max 8.6mm）
+  2. Umeyama 对齐残差 mean = **2.749 mm ≤ 3mm** ✅（max 4.8mm）
+  3. final/initial loss = **0.0809 ≤ 0.2** ✅（57.9mm → 4.7mm）
+- 训练：CoordNet 58,563 参数，CPU 213s。产物：`outputs/p3_0/gate1/`。
+- 含义：最小学习模型**能够在合成数据上学会 canonical correspondence**（Gate 1 回答"能不能学"= 能）。
+  sim-to-real（Gate 3）是下一个、也是真正的不确定性问题。
+- 工程记录：`run_p3_0` 新增强制 `sanity` 子命令（训练前必过）；渲染标签管线经此 Gate 后确认健康。
+---
+
 ## EXP-006 — P2.4：Classical baseline 工程验证（75+75 帧全量）—— **Phase 2 Complete**
 
 - **日期**：2026-08-30
