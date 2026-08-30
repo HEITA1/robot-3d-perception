@@ -2,6 +2,19 @@
 
 > 重要实现变化（不是每个 commit 都记）。格式：日期 + Phase + 变更。
 
+## 2026-08-30 — Phase 1 数据获取与验证（按批准范围执行）
+
+- 按批准提案下载 3 个 BOP ycbv 文件（base 15KB / models 500MB / test_bop19 630MB，合计 1.13GB），
+  unzip -t 校验通过后解压至 `data/ycbv/` 并删除压缩包；稳态占用 1.6GB，数据不入库。
+- **首要裁决通过**：test_bop19 完整包含本地 GT（scene_gt / scene_gt_info / scene_camera / mask / mask_visib），
+  Phase 2–5 本地评测路线无需变更。
+- 数据验证全部通过（`scripts/verify_ycbv_data.py`，报告：`docs/phase1_data_validation_report.md`）：
+  12 场景 × 75 帧、depth_scale=0.1、场景内 K 恒定、深度往返误差 1e-13 px、
+  GT 模型投影与 RGB 像素级对齐（mustard_bottle；bowl 经最可见帧 + mask 包围盒双重确认）。
+- 确认目标物体：obj5 mustard_bottle（非对称，d=196.5mm）、obj13 bowl（symmetries_continuous，d=161.9mm），
+  各 150 个 GT 实例。
+- 修复验证脚本"空转通过"缺陷（按物体独立采样替代"同帧双物体"条件）。
+
 ## 2026-08-30 — Phase 0 启动
 
 - 初始化仓库：git（`main` 分支）+ 私有远程 `origin`（github.com/HEITA1/robot-3d-perception）。
