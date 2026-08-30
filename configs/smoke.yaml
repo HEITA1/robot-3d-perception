@@ -1,0 +1,38 @@
+# Phase 0 smoke experiment: synthetic scene, CPU-only, zero downloads.
+# Validates: config -> synthetic RGB-D -> point cloud -> SE(3) perturbations
+#            -> ADD / ADD-S / translation / rotation metrics -> JSON + PNG + log.
+
+experiment:
+  name: smoke
+  seed: 0
+
+scene:
+  image_size: [480, 640]          # [H, W] pixels
+  intrinsics: {fx: 570.0, fy: 570.0, cx: 320.0, cy: 240.0}
+  model: box                      # box | cylinder
+  model_size: [0.10, 0.07, 0.05]  # meters; box: (sx, sy, sz) | cylinder: (radius, height)
+  n_model_points: 2000            # surface points used by ADD / ADD-S
+  n_render_points: 200000         # surface samples used to render depth
+  gt_pose:
+    rotation: {axis: [1.0, 2.0, 3.0], angle_deg: 30.0}
+    translation: [0.0, 0.0, 0.8]  # meters, camera frame
+
+# Camera-frame perturbations: T_est = DeltaT @ T_gt, with DeltaT built from
+# the fixed axis/direction below and per-level magnitudes (deterministic).
+perturbation:
+  axis: [1.0, 2.0, 3.0]
+  direction: [1.0, -1.0, 0.5]
+  sets:
+    rot_only:
+      rotation_deg: [0.0, 2.0, 5.0, 10.0, 20.0]
+      translation_m: [0.0, 0.0, 0.0, 0.0, 0.0]
+    trans_only:
+      rotation_deg: [0.0, 0.0, 0.0, 0.0, 0.0]
+      translation_m: [0.0, 0.005, 0.01, 0.02, 0.04]
+    combined:
+      rotation_deg: [0.0, 2.0, 5.0, 10.0, 20.0]
+      translation_m: [0.0, 0.005, 0.01, 0.02, 0.04]
+
+output:
+  root: outputs
+  save_visualization: true

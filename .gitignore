@@ -1,0 +1,41 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# --- IDE / OS ---
+.idea/
+.vscode/
+Thumbs.db
+.DS_Store
+
+# --- Experiment outputs (regenerable; results are recorded in EXPERIMENT_LOG.md) ---
+outputs/
+runs/
+*.log
+
+# --- Datasets, weights, large binaries: NEVER commit ---
+data/
+datasets/
+checkpoints/
+weights/
+models_cache/
+*.pt
+*.pth
+*.onnx
+*.ckpt
+*.npy
+*.npz
+*.ply
+*.pcd
+*.bag
+*.zip
+*.tar
+*.tar.gz
