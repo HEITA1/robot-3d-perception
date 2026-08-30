@@ -47,3 +47,40 @@
      DenseFusion/BOP 时冻结。
   3. Phase 1 可以开始（数据下载清单需先行报批）。
 
+---
+
+## EXP-001 — Phase 1 真实数据接口验证（YCB-V BOP → r3p）
+
+- **日期**：2026-08-30
+- **Phase**：1
+- **Question**：真实 YCB-V 数据经 `YcbvBopDataset` 接口后，几何、单位与标注语义是否与 BOP 官方定义完全一致（无单位混用、无坐标约定错误）？
+- **Hypothesis**：
+  1. 深度 → 点云 → 重投影往返误差 ≈ 0（真实深度图含传感器噪声与空洞，不影响往返一致性）；
+  2. GT 位姿 + 模型点投影能解释 `mask_visib`（可见区域 recall > 0.9）；
+  3. 接口边界处深度/平移/模型点全部为米：以物理合理性区间 + 官方 diameter 交叉验证捕获任何 mm/m 混用。
+- **Setup**：
+  - 接口：`YcbvBopDataset(data_root="data/ycbv", obj_ids=(5, 13))`，单位转换集中在接口边界
+    （depth: raw × depth_scale × 1e-3；cam_t_m2c × 1e-3；模型 ply 毫米 → 米）；
+  - 测试 7 项（`tests/test_ycbv_bop.py`）：往返（6 帧抽样）、单位（10 帧 + 两物体直径交叉验证）、
+    GT 投影 vs mask_visib（6 实例，膨胀 5×5 后 recall > 0.9）、obj 映射（21 物体名解析）、
+    索引非空显式断言（150+150 帧）、单实例假设扫描（全子集）、观测契约（形状/键/visib_fract）；
+  - demo：`run_ycbv_demo`（scene 50/im 620 mustard_bottle；scene 53/im 33 bowl）。
+- **Result**：
+  - pytest **35/35 通过**（28 合成 + 7 真实数据）；
+  - 往返：像素误差 < 1e-6（断言阈值），深度误差 < 1e-9 m；
+  - GT 投影 vs mask_visib：6/6 实例 recall > 0.9；模型点 100% 在帧内；
+  - 单位：深度 1%–99% 分位在 [0.2, 3.0] m；平移范数同区间；模型点最大点对距离与官方 diameter
+    精确吻合（obj5: 0.1965 m，obj13: 0.1619 m）；
+  - demo 两帧 GT 模型点与 RGB 实物像素级贴合（人工确认）。
+- **Analysis**：
+  - 接口无单位混用、无约定错误；真实深度图空洞/噪声不影响往返一致性（往返只依赖投影模型）。
+  - **语义发现**：models_info.json 的 `diameter` = 模型顶点间最大两两距离（非包围盒最长边）。
+    Phase 2 的 ADD-0.1d 阈值必须按此语义使用（初版单测曾误用 bbox 长边而被测试当场抓住）。
+  - 目标物体在整个 test_bop19 子集中无单帧多实例 → dict 接口安全（测试固化为回归防线）。
+- **Decision**：
+  1. **Phase 1 Exit Criteria 满足**：RGB-D → 点云 → 坐标变换 → 可视化全链路在真实数据上验证通过。
+  2. 评测协议备忘：ADD(-S) 阈值用 models_info diameter（最大点对距离）；模型点默认用 models/ 顶点
+    （确定性），Phase 2 冻结协议时复核是否改用表面均匀采样。
+  3. 可进入 Phase 2（PnP/ICP），等待指令。
+
+

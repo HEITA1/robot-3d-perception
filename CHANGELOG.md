@@ -2,6 +2,19 @@
 
 > 重要实现变化（不是每个 commit 都记）。格式：日期 + Phase + 变更。
 
+## 2026-08-30 — Phase 1 实现：YCB-V 真实数据接口与 demo
+
+- 实现 `YcbvBopDataset`：接入本地 test_bop19 子集（默认 obj 5 mustard_bottle + obj 13 bowl，
+  `require_objects` 过滤无目标帧）；单位转换集中在接口边界（depth raw×depth_scale×1e-3、
+  cam_t_m2c mm→m、模型 ply mm→m），接口输出全为米；支持 mask_visib / gt_instance_ids / visib_fract。
+- 实现 `run_ycbv_demo`：真实帧 RGB-D→点云→GT SE(3) 变换→投影叠加→三面板 PNG（Exit Criteria demo）。
+- 新增 7 项真实数据测试（无数据环境自动跳过）：往返、单位（物理区间 + 官方 diameter 交叉验证）、
+  GT 投影 vs mask_visib 一致性（recall>0.9）、obj 映射、索引非空显式断言、单实例假设、观测契约。
+  全套 35/35 通过。所有抽样循环含 `checked > 0` 断言，防零样本假 PASS。
+- **语义发现**：models_info `diameter` = 顶点最大点对距离（非 bbox 长边）——初版单测误用 bbox
+  被当场抓住并修正；Phase 2 的 0.1d 阈值须按此语义（EXP-001）。
+- 确认全子集无单帧多实例 → dict-per-object 接口安全（有回归测试防守）。
+
 ## 2026-08-30 — Phase 1 数据获取与验证（按批准范围执行）
 
 - 按批准提案下载 3 个 BOP ycbv 文件（base 15KB / models 500MB / test_bop19 630MB，合计 1.13GB），

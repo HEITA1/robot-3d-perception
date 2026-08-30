@@ -9,16 +9,17 @@
 | `src/r3p/logging_utils.py` | console+file logger；run 目录管理 `outputs/<exp>/<timestamp>/` | [x] |
 | `src/r3p/utils/checkpoint.py` | 通用 dict checkpoint 保存/加载（Phase 3 接 torch） | [x] |
 | `src/r3p/geometry/camera.py` | 针孔相机：project / deproject（RGB-D→点云）、make_K | [x] |
-| `src/r3p/geometry/se3.py` | SE(3) 合成/求逆/apply；旋转矩阵/四元数/轴角；旋转角度误差 | [x] |
-| `src/r3p/datasets/base.py` | 数据接口协议（rgb/depth/K/masks/gt_poses/model_points，单位：米） | [x] |
+| `src/r3p/geometry/se3.py` | SE(3) 合成/求逆/apply；旋转矩阵/四元数/轴角；旋转角度误差 | [x] || `src/r3p/datasets/base.py` | 数据接口协议（rgb/depth/K/masks/gt_poses/model_points，单位：米） | [x] |
 | `src/r3p/datasets/synthetic.py` | 合成 RGB-D 场景（box/cylinder，结构化采样保留精确对称性，零下载） | [x] |
-| `src/r3p/datasets/ycbv_bop.py` | YCB-V BOP 格式数据集接口 | [~] Phase 1 |
+| `src/r3p/datasets/ycbv_bop.py` | YCB-V BOP 格式数据集接口（单位转换集中边界：depth×depth_scale×1e-3、t mm→m、模型 mm→m；mask/gt_id/visib_fract） | [x] |
 | `src/r3p/evaluation/metrics.py` | ADD / ADD-S / 平移误差 / 旋转误差（纯 numpy + scipy cdist） | [x] |
 | `src/r3p/evaluation/evaluator.py` | 逐帧累积 → 按物体汇总表 | [x] |
 | `src/r3p/visualization/viz.py` | matplotlib 静态 PNG（headless 安全）+ Open3D 交互（可选） | [x] |
 | `src/r3p/experiments/run_smoke.py` | Phase 0 统一入口 smoke 实验 | [x] |
+| `src/r3p/experiments/run_ycbv_demo.py` | Phase 1 真实数据 demo：RGB-D→点云→GT 投影→PNG | [x] |
 | `configs/smoke.yaml` | smoke 实验配置 | [x] |
-| `tests/` | se3 / metrics / camera / synthetic / config 单元测试 | [x] |
+| `tests/` | se3/metrics/camera/synthetic/config 单测（28）+ 真实 YCB-V 数据测试（7，无数据时自动跳过） | [x] |
+| `scripts/verify_ycbv_data.py` | 数据集下载后完整性验证（GT 存在性/文件配对/往返/GT 叠加） | [x] |
 | PnP / RANSAC（计划 `geometry/solver.py`） | 2D-3D 位姿求解 | [ ] Phase 2 |
 | ICP（计划 `registration/icp.py`） | 点云配准 / 位姿精化 | [ ] Phase 2 |
 | RGB/点云编码器 + 融合 + 位姿头（计划 `models/`） | 学习基线 | [ ] Phase 3 |
