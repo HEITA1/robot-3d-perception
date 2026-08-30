@@ -189,6 +189,111 @@ def cmd_sanity(args) -> None:
     assert res["passed"], "data sanity check FAILED — training must not start"
 
 
+def _evaluate_split(net, samples, seed: int, n_points: int):
+    """Frozen evaluation protocol (identical to Gate 1): per-point ADD with the
+    render GT pose + Umeyama aligned residual, on n_points-point subsets."""
+    import torch  # local: torch is an optional dependency of this module
+    eval_rng = np.random.default_rng(seed)
+    add_mm, align_mm, elev_deg = [], [], []
+    for s in samples:
+        idx = eval_rng.choice(len(s["xyz"]), size=n_points, replace=False)
+        xyz = s["xyz"][idx]
+        xn, _, _ = normalize_points(xyz)
+        with torch.no_grad():
+            pred = net(torch.from_numpy(np.concatenate([xn, s["rgb"][idx] / 255.0],
+                                                       axis=1)[None].astype(np.float32)))[0].numpy()
+        add_mm.append(float(_add_loss(pred[None], s["coords"][idx][None], xyz[None], s["T"][None])) * 1e3)
+        R_a, t_a = umeyama_alignment(xyz, pred)
+        align_mm.append(float(np.linalg.norm(xyz @ R_a.T + t_a - pred, axis=1).mean()) * 1e3)
+        cam_pos = -s["T"][:3, :3].T @ s["T"][:3, 3]  # camera center in model frame
+        view = -cam_pos / np.linalg.norm(cam_pos)    # camera -> object
+        elev_deg.append(float(np.degrees(np.arccos(np.clip(view[2], -1, 1)))))
+    return np.array(add_mm), np.array(align_mm), np.array(elev_deg)
+
+
+def cmd_gate2(args) -> None:
+    import torch
+
+    torch.manual_seed(args.seed)
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    log_lines = []
+
+    def log(msg):
+        print(msg, flush=True)
+        log_lines.append(msg)
+
+    net = CoordNet()
+    net.load_state_dict(torch.load(args.checkpoint, weights_only=True))
+    net.eval()
+
+    # mandatory val sanity first
+    val_samples = _load_split(Path(args.data) / "val")
+    assert val_samples, "no validation samples (anti-false-pass)"
+    frame_err, add_err = [], []
+    for s in val_samples:
+        T, coords, xyz = s["T"], s["coords"], s["xyz"]
+        frame_err.append(float(np.abs(xyz - (coords @ T[:3, :3].T + T[:3, 3])).max()))
+        add_err.append(float(_add_loss(coords[None], coords[None], xyz[None], T[None])) * 1e3)
+    sanity = {"n_val": len(val_samples), "frame_max_err_m": float(np.max(frame_err)),
+              "add_gt_max_mm": float(np.max(add_err))}
+    sanity["passed"] = bool(sanity["frame_max_err_m"] < 1e-3 and sanity["add_gt_max_mm"] < 0.1)
+    log(f"validation sanity: {json.dumps(sanity)}")
+    assert sanity["passed"], "validation data sanity FAILED - evaluation must not start"
+
+    train_samples = _load_split(Path(args.data) / "train")
+    tr_add, tr_align, _ = _evaluate_split(net, train_samples, seed=123,
+                                          n_points=FROZEN["points_per_sample"])
+    va_add, va_align, va_elev = _evaluate_split(net, val_samples, seed=123,
+                                                n_points=FROZEN["points_per_sample"])
+    ratio = float(np.mean(va_add) / max(np.mean(tr_add), 1e-12))
+
+    results = {
+        "train_add_mean_mm": round(float(np.mean(tr_add)), 3),
+        "train_aligned_mean_mm": round(float(np.mean(tr_align)), 3),
+        "val_add_mean_mm": round(float(np.mean(va_add)), 3),
+        "val_aligned_mean_mm": round(float(np.mean(va_align)), 3),
+        "val_over_train_ratio": round(ratio, 3),
+        "criteria": {
+            "val_add_le_10mm": bool(np.mean(va_add) <= 10.0),
+            "val_aligned_le_5mm": bool(np.mean(va_align) <= 5.0),
+            "ratio_le_3": bool(ratio <= 3.0),
+        },
+        "val_add_stats_mm": {
+            "min": round(float(np.min(va_add)), 3), "median": round(float(np.median(va_add)), 3),
+            "mean": round(float(np.mean(va_add)), 3), "p90": round(float(np.percentile(va_add, 90)), 3),
+            "max": round(float(np.max(va_add)), 3),
+        },
+        "val_aligned_stats_mm": {
+            "min": round(float(np.min(va_align)), 3), "median": round(float(np.median(va_align)), 3),
+            "mean": round(float(np.mean(va_align)), 3), "p90": round(float(np.percentile(va_align, 90)), 3),
+            "max": round(float(np.max(va_align)), 3),
+        },
+    }
+    results["passed"] = all(results["criteria"].values())
+
+    # pose-correlation analysis (elevation of viewing direction vs canonical +z)
+    buckets = {"elev<45": (0, 45), "45-90": (45, 90), "90-135": (90, 135), ">=135": (135, 181)}
+    corr = {}
+    for name, (lo, hi) in buckets.items():
+        m = (va_elev >= lo) & (va_elev < hi)
+        if m.any():
+            corr[name] = {"n": int(m.sum()), "val_add_mean_mm": round(float(np.mean(va_add[m])), 3),
+                          "val_add_max_mm": round(float(np.max(va_add[m])), 3)}
+    worst = np.argsort(va_add)[::-1][:3]
+    results["pose_analysis"] = {
+        "elevation_buckets": corr,
+        "worst3": [{"sample_idx": int(i), "frame": val_samples[i]["frame_id"] if "frame_id" in val_samples[i] else f"val_{i:04d}",
+                    "elev_deg": round(float(va_elev[i]), 1), "val_add_mm": round(float(va_add[i]), 3)} for i in worst],
+    }
+    log(json.dumps(results, indent=2))
+    log(f"GATE2: {'PASS' if results['passed'] else 'FAIL'}")
+    with open(out / "gate2_metrics.json", "w", encoding="utf-8") as f:
+        json.dump(results, f, indent=2)
+    with open(out / "log.txt", "w", encoding="utf-8") as f:
+        f.write("\n".join(log_lines) + "\n")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -207,8 +312,13 @@ def main() -> None:
     y = sub.add_parser("sanity")
     y.add_argument("--data", default="data_synth/bottle")
     y.add_argument("--split", default="train")
+    g2 = sub.add_parser("gate2")
+    g2.add_argument("--data", default="data_synth/bottle")
+    g2.add_argument("--checkpoint", default="outputs/p3_0/gate1/coord_net_bottle.pt")
+    g2.add_argument("--seed", type=int, default=0)
+    g2.add_argument("--out", default="outputs/p3_0/gate2")
     args = parser.parse_args()
-    {"gen": cmd_gen, "gate1": cmd_gate1, "sanity": cmd_sanity}[args.cmd](args)
+    {"gen": cmd_gen, "gate1": cmd_gate1, "sanity": cmd_sanity, "gate2": cmd_gate2}[args.cmd](args)
 
 
 if __name__ == "__main__":

@@ -11,6 +11,7 @@
   + `sanity` 子命令（250 样本三项检查全部 ~0.01–0.04mm）。
 - 修正后 **Gate 1 PASS**：train ADD 4.8mm（≤5）、对齐残差 2.7mm（≤3）、loss 比 0.081（≤0.2）。
 - 新增 5 项测试（umeyama 恢复/RANSAC 外点/网络形状与规模/过拟合烟雾/归一化往返）；52/52 全绿。
+- **Gate 2 PASS**（50 未见合成姿态）：val ADD 5.82mm ≤10、对齐残差 3.17mm ≤5、val/train 比 1.21 ≤3——泛化成立，非记忆。
 
 ## 2026-08-30 — Phase 2 / P2.4：Classical baseline 工程收尾 —— **Phase 2 Complete**
 

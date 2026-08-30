@@ -242,6 +242,18 @@
 - 训练：CoordNet 58,563 参数，CPU 213s。产物：`outputs/p3_0/gate1/`。
 - 含义：最小学习模型**能够在合成数据上学会 canonical correspondence**（Gate 1 回答"能不能学"= 能）。
   sim-to-real（Gate 3）是下一个、也是真正的不确定性问题。
+
+### Gate 2 — Synthetic Validation（50 未见姿态，同一 checkpoint，零重训）：**PASS**
+
+- 验证集 sanity：50/50 样本 frame/ADD/Umeyama 检查全部 float16 舍入级 ✅
+- **三项冻结判据全部通过**：
+  1. val ADD mean = **5.824 mm ≤ 10mm** ✅（min 3.09 / median 5.47 / p90 7.07 / max 20.51）
+  2. val Umeyama 对齐残差 mean = **3.167 mm ≤ 5mm** ✅（median 2.75 / p90 4.50 / max 7.08）
+  3. val/train ratio = **1.207 ≤ 3** ✅（train ADD 4.824 / aligned 2.749 —— 与 Gate 1 完全复现）
+- 姿态相关性：按视点仰角分桶（<45°/45–90°/90–135°/≥135°）均值 5.6–6.7mm，
+  **无强姿态相关失败**；最差帧（val_0042，20.5mm）出现在近轴视角（elev 83°，沿轴向观察几何辨识度最低），符合几何直觉。
+- 判读：val/train 差距 1.21 倍属健康泛化间隙——**模型学到的是 canonical correspondence，不是对 200 样本的记忆**。
+- 产物：`outputs/p3_0/gate2/gate2_metrics.json`。下一步 Gate 3（真实 YCB-V smoke，10 帧）等待批准。
 - 工程记录：`run_p3_0` 新增强制 `sanity` 子命令（训练前必过）；渲染标签管线经此 Gate 后确认健康。
 ---
 
