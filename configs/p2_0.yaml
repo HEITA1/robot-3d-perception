@@ -1,0 +1,29 @@
+# P2.0 feasibility spike: SIFT + PnP-RANSAC on 10 fixed YCB-V frames (CPU only).
+# Reference library is built from scene 52 (GT used only for template construction);
+# evaluation runs on scene 50. Scenes are disjoint -> no leakage.
+
+reference:
+  scene: 52
+  n_frames: 3            # top-3 by visib_fract, tie-break: smaller im_id
+
+evaluation:
+  scene: 50
+  n_frames: 10           # evenly spaced over the im_id-sorted frame list
+  obj_id: 5              # mustard_bottle (asymmetric); bowl enters at P2.2+
+
+sift:
+  ratio: 0.75            # Lowe ratio test
+
+pnp:
+  min_inliers: 6
+  reproj_error_px: 3.0
+  iterations: 10000
+  confidence: 0.99
+  rng_seed: 0            # cv2.setRNGSeed -> reproducible RANSAC
+
+success:
+  add_diameter_frac: 0.1 # pose success: ADD < 0.1 * diameter (BOP-style)
+
+output:
+  root: outputs
+  n_draw_matches: 2      # save drawMatches debug images for the first N frames

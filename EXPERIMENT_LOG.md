@@ -83,4 +83,34 @@
     （确定性），Phase 2 冻结协议时复核是否改用表面均匀采样。
   3. 可进入 Phase 2（PnP/ICP），等待指令。
 
+---
+
+## EXP-002 — P2.0 Feasibility Spike：SIFT + PnP-RANSAC（方案 A）
+
+- **日期**：2026-08-30
+- **Phase**：2（P2.0）
+- **Question**：方案 A（深度提升参考帧模板）下，SIFT 能否建立稳定的 2D-3D 对应支撑 PnP-RANSAC？10 个固定帧的成功率如何？
+- **Hypothesis**：若参考库覆盖目标表观，ratio test 后应有大量匹配落在目标 mask 内（≥15），PnP inlier 重投影残差 < 3 px，部分帧 ADD < 0.1d。
+- **Setup**：
+  - 参考：scene 52 visib_fract top-3（im 561/516/575），SIFT@mask 内深度提升 → **645 descriptors**
+  - 评测：scene 50 等间隔 10 帧（im 620…1874）；场景不相交，无泄漏
+  - PnP：solvePnPRansac（EPnP，3px，10k iter，conf 0.99，min_inliers 6，cv2 种子 0）+ 全内点精化
+  - pose success：ADD < 0.1d = 19.65 mm（diameter=最大点对距离语义）
+  - 入口：`python -m r3p.experiments.run_p2_0 --config configs/p2_0.yaml`（run: `outputs/p2_0/20260830-142053`）
+- **Result（主实验：跨场景）**：**0/10 solver 成功**。每帧 query kp ~2200–2360，ratio 后 good 28–78，但**落在 bottle mask 内仅 0–6 个** → PnP 无可用对应。validation PASS（管线端到端正确、无崩溃）。
+- **Failure → Diagnosis**（按链条记录）：
+  1. **Failure**：0/10，in-mask 匹配趋零。
+  2. **诊断 1（可视化）**：drawMatches 显示参考帧 bottle 为**躺放、露出侧面标签**，评测帧为**立姿正面**——视点/姿态大幅差异；匹配集中在瓶盖/瓶颈等近视点不变区域。
+  3. **诊断 2（提升自检）**：库内 3D 点经参考帧 GT 投影回自身关键点，误差 **0.000 px** → 深度提升与 convention 无 bug。
+  4. **诊断 3（同场景对照，`scripts/p2_0_intra_scene_control.py`）**：参考库改由 scene 50 自身 3 帧（visib top-3，**显式排除 10 个评测帧**，run: `outputs/p2_0_control`）→ **8/10 solver、8/10 pose success**，ADD **1.1–16.6 mm**（多数 1–3 mm，纯 PnP 无 ICP），残差 0.6–1.3 px；失败 2 帧（im 620/653）in-mask 仅 4–6。
+- **Attribution**：主实验失败**不是软件 bug**（诊断 2、3 排除），而是真实的算法发现：**3 帧参考库视点覆盖不足，SIFT 跨大幅视点/姿态变化无法建立对应**（SIFT 视点不变性有限，符合预期理论边界）。
+- **Fix**：无软件缺陷需修。算法层面的修复路径（P2.1 提案，待批准）：方案 B（CPU RaycastingScene 渲染多视角模板库，覆盖视点空间）。
+- **Conclusion**（区分三层）：
+  - **软件正确性**：✅ 通过——合成零噪声回归精确恢复（<1e-6）、提升自检 0px、对照实验 8/10 且残差亚像素。
+  - **算法成功**：方案 A 跨场景 **0/10（不足）**；同场景 **8/10**（PnP 单独即达 mm 级，说明"深度提升 3D 点 + SIFT 匹配 + PnP"路线本身精度潜力很好）。
+  - **研究结论**：SIFT+PnP 的可行性边界 = **参考库的视点覆盖**，而非特征/求解器本身。该结论直接约束 P2.1 设计。
+- **过程软件修复记录**（不影响结论）：knnMatch 解包错误、RANSAC 后补全内点精化、drawMatches 参数序与 trainIdx 重映射、RGB/BGR 写图修正。
+- **Decision**：P2.0 Exit Criteria 满足。**P2.1 需要你批准方案 B 升级**（跨场景评测要求视点覆盖的模板库；同场景对照不构成合格 baseline——参考与评测同分布，会高估性能）。
+
+
 

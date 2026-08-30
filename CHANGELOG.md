@@ -2,6 +2,20 @@
 
 > 重要实现变化（不是每个 commit 都记）。格式：日期 + Phase + 变更。
 
+## 2026-08-30 — Phase 2 / P2.0：SIFT + PnP-RANSAC feasibility spike
+
+- 新增 `src/r3p/pose/sift_pnp.py`：深度提升 SIFT 参考库构建（GT 仅用于离线模板）、
+  knn+Lowe-ratio 匹配（支持 GT mask 过滤）、solvePnPRansac（EPnP）+ 全内点精化。
+  约定防线：残差一律用本项目 `project()` 计算，合成零噪声测试锁定 OpenCV↔SE(3) 约定。
+- 新增 `run_p2_0.py` + `configs/p2_0.yaml`：10 固定帧统一入口，四级成功定义
+  （feature/match/solver/pose ADD<0.1d），per-frame CSV + 全帧 overlay + matches 调试图。
+- **主实验结果（跨场景，EXP-002）**：0/10 solver 成功，in-mask 匹配 0–6 个。
+- **归因（三重诊断）**：提升自检 0.000px、同场景对照 8/10（ADD 1.1–16.6mm，纯 PnP）→
+  管线正确，失败 = 3 帧参考库视点覆盖不足（SIFT 视点不变性边界）。
+- 新增 `scripts/p2_0_intra_scene_control.py`（归因对照，排除评测帧，防泄漏）。
+- 新增合成回归测试 3 项（精确恢复/退化输入/SIFT 冒烟）；全套 38/38 通过。
+- 过程修复：knnMatch 解包、RANSAC 后精化、drawMatches 参数序/trainIdx 重映射、RGB/BGR 写图。
+
 ## 2026-08-30 — Phase 1 实现：YCB-V 真实数据接口与 demo
 
 - 实现 `YcbvBopDataset`：接入本地 test_bop19 子集（默认 obj 5 mustard_bottle + obj 13 bowl，
