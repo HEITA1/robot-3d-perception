@@ -17,16 +17,17 @@ Thumbs.db
 .DS_Store
 
 # --- Experiment outputs (regenerable; results are recorded in EXPERIMENT_LOG.md) ---
-outputs/
-runs/
+/outputs/
+/runs/
 *.log
 
 # --- Datasets, weights, large binaries: NEVER commit ---
-data/
-datasets/
-checkpoints/
-weights/
-models_cache/
+# (root-anchored on purpose: a bare `datasets/` would also ignore src/r3p/datasets/)
+/data/
+/datasets/
+/checkpoints/
+/weights/
+/models_cache/
 *.pt
 *.pth
 *.onnx
