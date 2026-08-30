@@ -1,0 +1,30 @@
+# P2.2: the ONLY changed variable vs P2.0 is reference.n_frames: 3 -> 75
+# (all of scene 52). Everything else is frozen for exact comparability.
+# Run: python -m r3p.experiments.run_p2_0 --config configs/p2_2.yaml
+
+reference:
+  scene: 52
+  n_frames: 75           # <-- the single study variable (P2.0 used 3)
+
+evaluation:
+  scene: 50
+  n_frames: 10
+  obj_id: 5
+
+sift:
+  ratio: 0.75
+
+pnp:
+  min_inliers: 6
+  reproj_error_px: 3.0
+  iterations: 10000
+  confidence: 0.99
+  rng_seed: 0
+
+success:
+  add_diameter_frac: 0.1
+
+output:
+  root: outputs
+  name: p2_2
+  n_draw_matches: 2

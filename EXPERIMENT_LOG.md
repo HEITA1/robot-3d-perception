@@ -143,6 +143,48 @@
 - **Decision**：按约束"需改变模板生成策略时先汇报"——**停止，P2.1 后续路线待批准**（见 Milestone Report 选项）。已知最有希望的廉价选项：**真实参考库扩充**（scene 52 全部 75 帧 ≈ 15k descriptors，跨场景零帧重叠、零新依赖、与 P2.0/P2.1 完全可比）；架构级备选：深度/几何初值路线（需批准）。
 - **过程软件修复**：z-depth vs 光线距离语义、下标赋值 RHS 先求值导致 walrus 未绑定、材质法线插值。
 
+---
+
+## EXP-004 — P2.2：真实参考库扩充（scene 52 全 75 帧，唯一变量 3→75）
+
+- **日期**：2026-08-30
+- **Phase**：2（P2.2）
+- **Question**：把 P2.0 的真实参考库从 scene 52 的 3 帧扩到全部 75 帧，能否解决 scene 50 跨场景评测的 SIFT 2D-3D 对应不足？
+- **Hypothesis**：视点/表观覆盖扩大 20 倍后，in-mask 匹配显著增加，solver success > 0。
+- **Setup**：**唯一变量 = reference.n_frames: 3 → 75**（`configs/p2_2.yaml`，其余全部冻结：
+  同 SIFT/ratio=0.75/同 PnP 参数与精化/同 10 评测帧/同 ADD<0.1d）。复用 `run_p2_0` 入口
+  （run: `outputs/p2_2/`），新增只读验证（不影响结果）：
+  - **A. Reference self-consistency**：12,670 个库点全量做 `model 3D → GT → project → 原关键点`，
+    **max 8.94e-04 px / mean 6.38e-05 px**（≈0，float 精度级），anti-zero guard 生效（75 帧/12670 点）
+  - **B. Library statistics**：75 帧、**12,670 descriptors**（P2.0 的 19.6 倍）、
+    每帧 min/median/max = 84/192/252、**重复 descriptors = 0**（无去重逻辑，如实报告）
+  - **C. 10 帧全记录**：见 `outputs/p2_2/*/per_frame.csv`（无一帧省略）
+- **Result**：
+  | 指标 | P2.0（3 帧，645 desc） | P2.2（75 帧，12,670 desc） |
+  | --- | --- | --- |
+  | good 匹配 min/med/max | 28 / 43 / 78 | **7 / 13 / 19（下降）** |
+  | in-mask 匹配 min/med/max | 0 / 2 / 6 | 0 / 1 / 2 |
+  | solver success | 0/10 | **0/10** |
+  | pose success (ADD<0.1d) | 0/10 | 0/10 |
+  | ADD / ADD-S mean·median | n/a（无成功帧） | n/a（无成功帧） |
+- **Diagnosis**：
+  1. **表观状态证据（`outputs/p2_2/aspect_grid.png`）**：scene 52 全程（采样 im 1/116/520/593/886 + P2.0 的 516/561/575）
+     中 bottle 均为**背面朝上（蓝色标签侧）躺放**；scene 50 评测帧为**正面（红色 French's 标签）立姿**——
+     **两场景可见表面几乎不相交**。75 帧里不存在查询帧所需的外观状态。
+  2. **ratio test 压制效应**：库扩大 19.6 倍后 good 反而下降（中位 43→13）——同物体 75 视角的自相似描述子
+     使第二近邻不再"足够远"，Lowe ratio 通过率下降（SIFT ratio test 的已知机制）。
+- **Conclusion**（按结果解释纪律）：
+  - **如实报告：扩大真实视点覆盖仍不足以解决问题（0/10）。** 且本数据对上的更尖锐结论是：
+    瓶颈不是覆盖**密度**，而是参考场景中**根本不存在**查询所需外观（可见表面不相交）。
+  - 参考库依赖是 SIFT+PnP 路线的本质约束：真实参考库只有包含查询外观时才可能工作
+    （intra-scene 对照 8/10、ADD 1–3mm 证明了上限）。
+  - 至此三个变体（3 帧真实 / 75 帧真实 / 16 视角渲染±明暗）全部失败，
+    SIFT+PnP 跨场景路线在 YCB-V scene50↔52 上判定为不可行（有完整归因链）。
+- **Decision**：按指令停止，不进入 ICP 或其他方案。SIFT 跨场景结论已闭环；
+  后续 P2.3+ 的路线选择（同场景参考定义 baseline + 局限声明 / 深度几何初值 / 进入 ICP 等）
+  等待批准，本实验不做任何延伸。
+
+
 
 
 

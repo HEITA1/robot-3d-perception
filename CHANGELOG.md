@@ -2,6 +2,16 @@
 
 > 重要实现变化（不是每个 commit 都记）。格式：日期 + Phase + 变更。
 
+## 2026-08-30 — Phase 2 / P2.2：真实参考库 3→75 帧（阴性结果，结论闭环）
+
+- `run_p2_0` 增加只读验证日志：参考库自洽性（model 3D→GT→project 回到原关键点）
+  与库统计（帧数/descriptor 数/每帧分布/重复计数）；`output.name` 可配置。
+- 新增 `configs/p2_2.yaml`：唯一变量 reference.n_frames 3→75（scene 52 全部），其余参数冻结。
+- 新增 `verify_reference_consistency` / `reference_statistics`（sift_pnp.py，只读诊断）。
+- **结果（EXP-004）**：0/10；good 匹配反降（43→13 中位，ratio test 自相似压制）；in-mask 0–2。
+  表观证据：scene 52 全程 bottle 背面躺放，scene 50 评测帧正面立姿——可见表面不相交。
+- **SIFT+PnP 跨场景路线在 scene50↔52 上判定不可行（三变体归因链完整）；停止，后续路线待批。**
+
 ## 2026-08-30 — Phase 2 / P2.1：多视角渲染模板库（方案 B，阴性结果）
 
 - 纹理核实：BOP PLY 原生带 texture_u/v + 4096² 纹理 PNG；Open3D 读取器不暴露 → 直接解析 ASCII PLY（模型自身数据，零新依赖）。

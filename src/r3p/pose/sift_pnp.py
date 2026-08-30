@@ -21,6 +21,7 @@ import cv2
 import numpy as np
 
 from ..geometry.camera import project
+from ..geometry.se3 import apply as apply_T
 from ..geometry.se3 import invert, make_T
 
 
@@ -247,3 +248,51 @@ def solve_pnp(
     uv_proj, _ = project(K, points_model[inliers] @ R.T + T[:3, 3])
     residual = float(np.linalg.norm(uv_proj - points_image[inliers], axis=1).mean())
     return PnpResult(success=True, T=T, inlier_indices=inliers, n_inliers=len(inliers), residual_px=residual)
+
+
+# --------------------------------------------------------------------------- #
+# Reference library verification (read-only diagnostics; do not affect results)
+# --------------------------------------------------------------------------- #
+def verify_reference_consistency(dataset, library: ReferenceLibrary, max_frames: int | None = None) -> dict:
+    """Roundtrip check on (a subset of) the reference frames:
+    model 3D -> GT -> camera 3D -> project must land back on the source SIFT
+    keypoint pixels. Catches lifting/convention bugs. Read-only diagnostics."""
+    rng = np.random.default_rng(0)
+    frame_ids = list(library.frame_ids)
+    if max_frames is not None and len(frame_ids) > max_frames:
+        frame_ids = sorted(rng.choice(frame_ids, size=max_frames, replace=False).tolist())
+    errs = []
+    checked = 0
+    for frame_id in frame_ids:
+        scene, im = frame_id.split("/")
+        cam_entry = dataset._scene_camera[int(scene)][str(int(im))]
+        K = np.array(cam_entry["cam_K"], dtype=np.float64).reshape(3, 3)
+        inst = next(i for i in dataset._scene_gt[int(scene)][str(int(im))] if i["obj_id"] == library.obj_id)
+        T = make_T(np.array(inst["cam_R_m2c"]).reshape(3, 3),
+                   np.array(inst["cam_t_m2c"]).reshape(3) * 1e-3)
+        seg = library.segments[frame_id]
+        r0, r1 = seg["row_range"]
+        uv, _ = project(K, apply_T(T, library.points_model[r0:r1]))
+        kp_uv = np.array([k.pt for k in seg["keypoints"]])
+        errs.append(np.linalg.norm(uv - kp_uv, axis=1))
+        checked += 1
+    assert checked > 0, "consistency check sampled zero frames (anti-false-pass)"
+    errs = np.concatenate(errs)
+    assert len(errs) > 0, "consistency check sampled zero points (anti-false-pass)"
+    return {"n_frames_checked": checked, "n_points": int(len(errs)),
+            "max_err_px": float(errs.max()), "mean_err_px": float(errs.mean())}
+
+
+def reference_statistics(library: ReferenceLibrary) -> dict:
+    """Library composition stats. Exact-duplicate descriptor count is reported
+    as-is (no dedup logic exists by design)."""
+    counts = np.array(library.per_frame_counts, dtype=np.int64)
+    uniq = np.unique(library.descriptors, axis=0).shape[0] if len(library) else 0
+    return {
+        "n_frames": len(library.frame_ids),
+        "n_descriptors": int(len(library)),
+        "per_frame_min": int(counts.min()) if len(counts) else 0,
+        "per_frame_median": float(np.median(counts)) if len(counts) else 0.0,
+        "per_frame_max": int(counts.max()) if len(counts) else 0,
+        "duplicate_descriptors": int(len(library) - uniq),
+    }

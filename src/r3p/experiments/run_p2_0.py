@@ -30,7 +30,7 @@ from ..evaluation.evaluator import PoseEvaluator
 from ..evaluation.metrics import compute_all
 from ..geometry.se3 import apply as apply_T
 from ..logging_utils import create_run_dir, setup_logger
-from ..pose.sift_pnp import build_reference, match_query, solve_pnp
+from ..pose.sift_pnp import build_reference, match_query, reference_statistics, solve_pnp, verify_reference_consistency
 
 
 def parse_args(argv=None):
@@ -78,9 +78,10 @@ def apply_T_and_project(K, points, T):
 
 def run(config_path: str, overrides: list[str] | None = None) -> int:
     cfg = load_config(config_path, overrides)
-    run_dir = create_run_dir(cfg.get("output.root", "outputs"), "p2_0")
+    run_dir = create_run_dir(cfg.get("output.root", "outputs"), cfg.get("output.name", "p2_0"))
     log = setup_logger(run_dir)
     log.info("run_dir: %s", run_dir)
+    sanity_ok = True
 
     obj_id = int(cfg["evaluation.obj_id"])
     diameter = None
@@ -110,16 +111,29 @@ def run(config_path: str, overrides: list[str] | None = None) -> int:
         require_objects=True, load_masks=True,
     )
     library = build_reference(ref_ds, ref_scene, obj_id, n_ref_frames=int(cfg["reference.n_frames"]))
+    assert len(library) > 0, "reference library is empty (anti-false-pass guard)"
+    consistency = verify_reference_consistency(ref_ds, library)
+    stats = reference_statistics(library)
     log.info(
-        "reference library: obj %d, %d descriptors from %d frames %s (per-frame %s)",
-        obj_id, len(library), len(library.frame_ids), library.frame_ids, library.per_frame_counts,
+        "reference library: obj %d, %d descriptors from %d frames (per-frame min/median/max = %d/%.0f/%d, "
+        "duplicate descriptors=%d [no dedup applied])",
+        obj_id, stats["n_descriptors"], stats["n_frames"], stats["per_frame_min"],
+        stats["per_frame_median"], stats["per_frame_max"], stats["duplicate_descriptors"],
     )
+    log.info(
+        "reference self-consistency: %d frames / %d points, max %.2e px, mean %.2e px",
+        consistency["n_frames_checked"], consistency["n_points"],
+        consistency["max_err_px"], consistency["mean_err_px"],
+    )
+    if consistency["max_err_px"] > 1.0:
+        log.warning("SANITY: reference lifting reprojection error > 1 px — investigate before trusting results")
+        sanity_ok = False
 
     cv2.setRNGSeed(int(cfg["pnp.rng_seed"]))
     sift = cv2.SIFT_create()
     evaluator = PoseEvaluator()
     rows = []
-    sanity_ok = True
+
 
     for k, ds_i in enumerate(eval_ids):
         obs = eval_ds[ds_i]

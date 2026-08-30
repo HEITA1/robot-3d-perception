@@ -23,6 +23,7 @@
 | `configs/smoke.yaml` | smoke 实验配置 | [x] |
 | `configs/p2_0.yaml` | P2.0 spike 配置（参考/评测场景、PnP/成功阈值参数） | [x] |
 | `configs/p2_1.yaml` | P2.1 渲染模板配置（16 视角/radius，其余与 P2.0 一致） | [x] |
+| `configs/p2_2.yaml` | P2.2 配置（唯一变量：reference.n_frames 3→75，其余冻结） | [x] |
 | `scripts/verify_ycbv_data.py` | 数据集下载后完整性验证（GT 存在性/文件配对/往返/GT 叠加） | [x] |
 | `scripts/p2_0_intra_scene_control.py` | P2.0 归因对照实验（同场景参考库，排除评测帧） | [x] |
 | `src/r3p/experiments/run_p2_1.py` | P2.1 统一入口（渲染模板库 → SIFT → PnP，与 P2.0 可比） | [x] |
