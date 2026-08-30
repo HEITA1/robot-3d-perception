@@ -184,6 +184,37 @@
   后续 P2.3+ 的路线选择（同场景参考定义 baseline + 局限声明 / 深度几何初值 / 进入 ICP 等）
   等待批准，本实验不做任何延伸。
 
+---
+
+## EXP-005 — P2.3-S：几何路线（mask → PCA/OBB 24 假设 → point-to-plane ICP）✅ GO
+
+- **日期**：2026-08-30
+- **Phase**：2（P2.3-S）
+- **Question**：已知物体类别、拥有 RGB-D + oracle mask、**无 GT pose** 的条件下，纯几何方法能否从未知初始姿态恢复 YCB-V 物体 6D pose？
+- **Hypothesis**：几何信号绕开外观重叠与域差（EXP-002/003/004 的三条失败原因全部不适用）；多假设 + ICP 达到 GO 判据（bottle ADD<0.1d ≥5/10，bowl ADD-S<0.1d ≥5/10）。
+- **Setup**（参数跑前冻结于 `configs/p2_3.yaml`，未因结果调整）：
+  - 推理链：oracle mask（受控条件，显式标注）→ 物体点云（5mm voxel）→ PCA → **24 个 proper rotation 假设**（6 置换 × 4 符号，det=+1）→ 质心平移对齐 → 逐假设 point-to-plane ICP（scene→model 方向，3cm→1cm→3mm，每级 ≤60 iter）→ **仅以 fitness 选择**（并列取低 RMSE）
+  - GT 仅用于评测与事后诊断 `gt_best_hypothesis`（不进推理）；两阶段（PCA init / ICP）分别评测
+  - 数据：obj5 scene 50 固定 10 帧 + obj13 scene 53 固定 10 帧；入口 `run_p2_3`（run: `outputs/p2_3/20260830-155355`）
+- **Result**：
+  | 物体 | solver success | pose success | 主指标 | PCA init（被选假设） | ICP 结果 |
+  | --- | ---: | ---: | --- | --- | --- |
+  | obj5 mustard_bottle | **10/10**（fitness 0.88–0.97，RMSE 1.4–1.6mm） | **9/10**（ADD<0.1d） | ADD **0.7–2.0mm**（9 帧） | ADD 32.9–131.8mm | ADD 0.7–2.0mm |
+  | obj13 bowl | **8/10** | **8/10**（ADD-S<0.1d） | ADD-S **2.4–3.2mm** | init 77–181mm | ADD-S 2.4–3.2mm |
+  - **failure taxonomy**：bottle：9 success + 1 `adds_ok_add_fail`（im 1718，ADD 62mm / ADD-S 2.7mm / fitness **0.97**——几何收敛到错误 roll 的近圆柱歧义）；bowl：8 success + 2 `icp_no_converge`（im 533/551，fitness 0.13–0.14，碗被罐头重遮挡、可见表面不足；GT-best 诊断亦仅 27.9–28.2mm → 深度/覆盖极限而非选择失败）
+  - **fitness 选择 vs GT-best**：20 帧中被 fitness 选中且非 GT-best 的帧里，除 bottle 1718 外全部落在对称等价位形（ bowl）或同等精度（bottle 1113：hyp17 vs hyp15 均 0.7mm）→ **fitness 选择仅 1 帧真实失误**
+- **Analysis**：
+  1. **两阶段分工清晰**：PCA init 普遍偏离 33–181mm（单视角半壳 PCA 的必然粗糙度），但 24 假设几乎总有一个落在正确朝向盆地内，ICP 一律收敛到 ~1–3mm——"粗初始化失败"与"精化失败"被干净地区分开：粗初始化靠假设集兜底，精化失败仅 2 帧且归因遮挡。
+  2. **问题 D 的量化答案**：bowl 的 ADD（均值 96.8mm）与 ADD-S（均值 2.65mm）巨大分裂正是旋转对称性的正确表现——算法没有失败，是 ADD 对对称物体不可判别。
+  3. **fitness≠pose 的实例**（1718）：fitness 0.97 + RMSE 1.5mm 但 ADD 62mm——"几何配准收敛，但收敛到错误 roll"，正是预判的高价值失败模式；也标出了未来改进点（roll 歧义的消解），但本轮不改。
+  4. 与 SIFT 路线对照：同一批 scene 50 评测帧上，SIFT 全变体 0/10，几何路线 9/10 + 8/10——失败原因（外观）被换信号彻底绕开。
+- **Conclusion**：
+  - **GO 判据达成**（9/10 ≥ 5，8/10 ≥ 5）。纯几何 classical 方法在 oracle mask + 无 GT pose 条件下**成立**。
+  - Phase 2 baseline 候选正式产生：Baseline-A = PCA/OBB init（粗糙），**Baseline-B = PCA/OBB + ICP（主 baseline）**；后续学习方法的对照组即此。
+  - 已知局限（诚实声明）：oracle mask；roll 歧义影响非对称指标（bottle 1/10）；重遮挡下失败（bowl 2/10）；单帧未批处理。
+- **Decision**：P2.3-S 完成。规模放大（全场景/全帧）、遮挡失败改进、与 Phase 3 的衔接——等待批准，本轮不延伸。
+
+
 
 
 

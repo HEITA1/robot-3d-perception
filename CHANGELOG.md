@@ -2,6 +2,18 @@
 
 > 重要实现变化（不是每个 commit 都记）。格式：日期 + Phase + 变更。
 
+## 2026-08-30 — Phase 2 / P2.3-S：几何路线（route A）—— GO
+
+- 新增 `src/r3p/pose/geo_init.py`：oracle mask→物体点云→PCA→24 proper-rotation 假设→
+  质心对齐→point-to-plane ICP（scene→model 方向，3cm→1cm→3mm）；推理路径零 GT pose，
+  假设选择仅用 fitness；新增 `run_p2_3.py` + `configs/p2_3.yaml`（两物体、两阶段评估、
+  失败 taxonomy、GT-best 仅诊断、四重 overlay）。
+- **结果（EXP-005，GO）**：bottle solver 10/10、pose 9/10（ADD 0.7–2.0mm）；bowl solver 8/10、
+  pose 8/10（ADD-S 2.4–3.2mm）。失败 3 帧全部归因：1×近圆柱 roll 歧义（fitness 0.97 但 ADD 62mm）、
+  2×重遮挡（fitness 0.13）。PCA init 偏差 33–181mm 由 ICP 收敛至 1–3mm——两阶段分工被干净证明。
+- Phase 2 baseline 候选产生：PCA/OBB init（A）与 PCA/OBB+ICP（B，主）。
+- 新增合成回归测试 4 项（24 假设正交性/合成恢复/ICP 改善量/点云过滤防零样本）；全套 46/46。
+
 ## 2026-08-30 — Phase 2 / P2.2：真实参考库 3→75 帧（阴性结果，结论闭环）
 
 - `run_p2_0` 增加只读验证日志：参考库自洽性（model 3D→GT→project 回到原关键点）
