@@ -24,6 +24,7 @@ Thumbs.db
 # --- Datasets, weights, large binaries: NEVER commit ---
 # (root-anchored on purpose: a bare `datasets/` would also ignore src/r3p/datasets/)
 /data/
+/data_synth/
 /datasets/
 /checkpoints/
 /weights/
