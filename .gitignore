@@ -39,3 +39,6 @@ models_cache/
 *.zip
 *.tar
 *.tar.gz
+
+# --- ZCode workspace internals ---
+.zcode/
