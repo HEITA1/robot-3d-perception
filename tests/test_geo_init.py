@@ -117,3 +117,16 @@ def test_object_point_cloud_filters_and_guards():
     empty_mask = np.zeros_like(mask)
     with pytest.raises(AssertionError):
         object_point_cloud(depth, empty_mask, K)
+
+
+def test_object_point_cloud_is_deterministic():
+    """Run-to-run reproducibility: identical inputs must give identical clouds
+    (voxel_down_sample alone does not guarantee output order)."""
+    K = make_K(570.0, 570.0, 320.0, 240.0)
+    rng = np.random.default_rng(9)
+    depth = np.zeros((240, 320), dtype=np.float32)
+    depth[50:150, 80:260] = rng.uniform(0.6, 1.0, (100, 180)).astype(np.float32)
+    mask = depth > 0
+    a = np.asarray(object_point_cloud(depth, mask, K, 0.005).points)
+    b = np.asarray(object_point_cloud(depth, mask, K, 0.005).points)
+    assert a.shape == b.shape and np.array_equal(a, b)

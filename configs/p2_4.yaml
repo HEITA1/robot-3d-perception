@@ -1,0 +1,41 @@
+# P2.4: engineering-scale validation of the classical pipeline.
+# IDENTICAL frozen parameters to P2.3-S; only the frame count changes
+# (10 -> all 75 frames per object's established scene) and the run name.
+# P2.3-S: geometry-based classical pose spike (route A).
+# mask -> object point cloud -> PCA/OBB multi-hypothesis (24 proper rotations)
+# -> point-to-plane ICP -> select by fitness (the ONLY inference-time signal).
+# Oracle segmentation (GT mask_visib) is a declared controlled condition; GT
+# pose is used ONLY in evaluation and in the clearly-separated diagnostic
+# `gt_best_hypothesis` (never in inference). Frozen parameters — no tuning.
+
+data:
+  root: data/ycbv
+
+objects:
+  - obj_id: 5
+    eval_scene: 50
+    n_frames: 75           # P2.4: all available frames of the established scene
+    success_metric: add        # mustard bottle: asymmetric -> ADD
+    mesh: models/obj_000005.ply
+  - obj_id: 13
+    eval_scene: 53
+    n_frames: 75           # P2.4: all available frames of the established scene
+    success_metric: adds       # bowl: rotationally symmetric -> ADD-S
+    mesh: models/obj_000013.ply
+
+icp:
+  voxel_m: 0.005
+  corr_schedule_m: [0.03, 0.01, 0.003]   # frozen schedule
+  max_iter_per_stage: 60
+  min_cloud_pts: 500
+
+selection:                    # solver gates (distinct from pose success)
+  min_fitness: 0.5
+  max_rmse_m: 0.004
+
+success:
+  add_diameter_frac: 0.1      # ADD < 0.1d (or ADD-S < 0.1d for bowl)
+
+output:
+  root: outputs
+  name: p2_4

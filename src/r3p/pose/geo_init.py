@@ -32,13 +32,21 @@ from ..geometry.se3 import invert
 
 
 def object_point_cloud(depth: np.ndarray, mask: np.ndarray, K: np.ndarray, voxel_m: float = 0.005):
-    """Masked depth -> camera-frame point cloud (meters), voxel-downsampled."""
+    """Masked depth -> camera-frame point cloud (meters), voxel-downsampled.
+
+    Open3D's voxel_down_sample does not guarantee deterministic output ORDER
+    (unordered internal buckets); ICP is sensitive to point order at the
+    3rd-decimal level, which made knife-edge frames flip between runs. Points
+    are therefore re-sorted lexicographically after downsampling: same point
+    SET, canonical order, run-to-run reproducible."""
     pts = deproject(K, depth, mask=mask)
     assert len(pts) > 0, "object point cloud is empty (anti-false-pass)"
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(pts)
     if voxel_m > 0:
         pcd = pcd.voxel_down_sample(voxel_m)
+    sorted_pts = np.asarray(pcd.points)[np.lexsort(np.asarray(pcd.points).T)]
+    pcd.points = o3d.utility.Vector3dVector(sorted_pts)
     return pcd
 
 
@@ -108,4 +116,63 @@ def icp_refine(scene_pcd: o3d.geometry.PointCloud, model_pcd: o3d.geometry.Point
             scene_pcd, model_pcd, max_corr, T, estimation, criteria)
         T = result.transformation
         fitness, rmse = result.fitness, result.inlier_rmse
+        if not (np.isfinite(T).all() and np.isfinite(fitness) and np.isfinite(rmse)):
+            # degenerate correspondences can poison the transform; report as
+            # non-converged instead of propagating NaNs downstream
+            return IcpResult(T_model_scene=T_model_scene_init.copy(), fitness=0.0, inlier_rmse=float("inf"))
     return IcpResult(T_model_scene=T, fitness=float(fitness), inlier_rmse=float(rmse))
+
+
+# --------------------------------------------------------------------------- #
+# Replaceable per-frame inference interface (Phase 3 learning methods should
+# implement the same signature and return the same structure).
+# --------------------------------------------------------------------------- #
+@dataclass
+class PoseHypothesis:
+    index: int
+    T_cam_model_init: np.ndarray
+    T_cam_model: np.ndarray | None  # post-ICP camera-frame pose (meters)
+    fitness: float
+    inlier_rmse: float  # meters
+
+
+@dataclass
+class GeometricPoseResult:
+    scene_points: np.ndarray  # (N, 3) camera frame, meters (voxel-downsampled)
+    pca_ratio_l2_l1: float
+    pca_ratio_l3_l1: float
+    hypotheses: list  # list[PoseHypothesis], len 24
+    selected: PoseHypothesis | None  # fitness argmax, rmse tie-break
+    scene_centroid: np.ndarray
+
+
+def estimate_pose(depth, mask, K, model_pcd: o3d.geometry.PointCloud,
+                  model_points_m: np.ndarray, voxel_m: float = 0.005,
+                  corr_schedule_m=(0.03, 0.01, 0.003), max_iter_per_stage: int = 60,
+                  min_cloud_pts: int = 500) -> GeometricPoseResult | None:
+    """Full per-frame inference. Returns None if the observation is insufficient
+    (fewer than min_cloud_pts valid masked depth points)."""
+    cloud = object_point_cloud(depth, mask, K, voxel_m)
+    if len(cloud.points) < min_cloud_pts:
+        return None
+    scene_pts = np.asarray(cloud.points)
+    scene_axes, scene_vals = pca_analysis(scene_pts)
+    model_axes, _ = pca_analysis(model_points_m)
+    rots = hypothesis_rotations(scene_axes, model_axes)
+    scene_centroid = scene_pts.mean(axis=0)
+    model_centroid = model_points_m.mean(axis=0)
+
+    hypotheses = []
+    for j, R in enumerate(rots):
+        T_init = initial_pose(R, scene_centroid, model_centroid)
+        res = icp_refine(cloud, model_pcd, invert(T_init),
+                         corr_schedule_m=corr_schedule_m, max_iter_per_stage=max_iter_per_stage)
+        hypotheses.append(PoseHypothesis(
+            index=j, T_cam_model_init=T_init, T_cam_model=invert(res.T_model_scene),
+            fitness=res.fitness, inlier_rmse=res.inlier_rmse))
+    selected = max(hypotheses, key=lambda h: (h.fitness, -h.inlier_rmse))
+    return GeometricPoseResult(
+        scene_points=scene_pts,
+        pca_ratio_l2_l1=float(scene_vals[1] / scene_vals[0]),
+        pca_ratio_l3_l1=float(scene_vals[2] / scene_vals[0]),
+        hypotheses=hypotheses, selected=selected, scene_centroid=scene_centroid)

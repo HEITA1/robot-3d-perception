@@ -25,13 +25,17 @@
 - ADD / ADD-S（对称物体以 ADD-S 为准；主表同时报告）
 - 汇总主表（Phase 5 结束时填写完整）：
 
-| Method            | ADD (mm) | ADD-S (mm) | Trans Error (mm) | Rot Error (deg) |
-| ----------------- | -------: | ---------: | ---------------: | --------------: |
-| PnP               |          |            |                  |                 |
-| ICP               |          |            |                  |                 |
-| Learning Baseline |          |            |                  |                 |
-| FoundationPose    |          |            |                  |                 |
-| Ours              |          |            |                  |                 |
+| Method（Phase 2 Classical，oracle mask，scene 50/53 各 75 帧） | ADD (mm) mean/med | ADD-S (mm) mean/med | Pose Success |
+| ----------------------------------------------------------- | ----------------- | ------------------ | -----------: |
+| Classical init（PCA/OBB，obj5 bottle，判据 ADD）            | 73.4 / 84.3       | 25.3 / 24.9        | —（仅初值）  |
+| **Classical + ICP（obj5 bottle，判据 ADD<0.1d）**           | 5.27 / 1.30       | 1.22 / 1.21        | **70/75 = 93.3%** |
+| Classical init（PCA/OBB，obj13 bowl，判据 ADD-S）           | 140.6 / 149.1     | 68.9 / 73.8        | —（仅初值）  |
+| **Classical + ICP（obj13 bowl，判据 ADD-S<0.1d）**          | 90.2 / 2.67（ADD-S median） | 10.3 / 2.67 | **58/75 = 77.3%** |
+| Learning Baseline（Phase 3）                                 |                   |                    |              |
+| FoundationPose（Phase 4）                                    |                   |                    |              |
+| Ours（Phase 5）                                              |                   |                    |              |
+
+注：bowl 的 ADD 高值是旋转对称性的必然结果（判据为 ADD-S）；失败模式：bottle 5 帧 roll 歧义、bowl 16 帧重遮挡 no-converge + 1 帧选择失败（EXP-006）。
 
 - 评测协议细节（阈值、模型点单位、聚合方式）在 Phase 2 实现时确定并记录于此。
 
@@ -41,7 +45,7 @@
 | --- | --- | --- | --- |
 | 0 基础设施 | 仓库/数据接口/配置/日志/评测/可视化/测试/文档 | 统一入口完成一次最小实验（smoke） | **进行中** |
 | 1 3D Geometry | 相机模型/RGB-D/点云/坐标变换/SE(3)/旋转表示 | 输入 RGB-D 正确生成点云并完成坐标系转换与可视化 | 未开始 |
-| 2 Classical Pose | PnP/RANSAC/ICP/精化 | ≥1 个 YCB-V 物体跑通完整 pipeline 并获得标准评价结果 | 未开始 |
+| 2 Classical Pose | 几何路线：mask→PCA/OBB 24 假设→point-to-plane ICP（SIFT+PnP 路线已证伪，见 EXP-002/003/004） | ≥1 个 YCB-V 物体跑通完整 pipeline 并获得标准评价结果 | **完成（P2.4，oracle mask 受控条件）** |
 | 3 Learning Pose | RGB/点云编码器/融合/位姿头/loss/训练 | 学习基线稳定训练并在测试数据输出合理 6D 位姿 | 未开始 |
 | 4 FoundationPose | 安装/推理/评测适配/对比 | FoundationPose 进入统一实验体系 | 未开始 |
 | 5 鲁棒性研究 | 遮挡/噪声实验/失败分析/一个改进/Ablation | 得到有明确实验依据的改进并验证有效 | 未开始 |

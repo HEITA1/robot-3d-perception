@@ -2,6 +2,20 @@
 
 > 重要实现变化（不是每个 commit 都记）。格式：日期 + Phase + 变更。
 
+## 2026-08-30 — Phase 2 / P2.4：Classical baseline 工程收尾 —— **Phase 2 Complete**
+
+- 全量工程验证：obj5 scene 50 全 75 帧 + obj13 scene 53 全 75 帧（参数与 P2.3-S 完全冻结一致）。
+  bottle solver 75/75、pose 70/75（93.3%，成功帧 ADD median 1.3mm / max 2.0mm）；bowl solver 59/75、
+  pose 58/75（77.3%，成功帧 ADD-S median 2.67mm / max 3.2mm）；零崩溃/零 NaN/runtime_error。
+- **工程发现与修复：运行间非确定性**——Open3D voxel_down_sample 输出顺序不保证 + ICP/法线估计
+  多线程 FP 归约顺序抖动，近对称刀刃帧逐位翻转（实测 bowl solver 7–9/10 波动）。修复：点云字典序
+  规范化 + OMP 单线程（OMP_NUM_THREADS=1），两次运行逐位一致（回归测试固化）；~2× 耗时（决策 D9）。
+- 推理接口固化：`geo_init.estimate_pose`（Phase 3 学习方法按同签名替换）。
+- 失败模式与 P2.3-S 一致且系统化：bottle 5 帧 roll 歧义（ADD≈62mm / fitness≈0.95 同签名）、
+  bowl 16 帧重遮挡段 no-converge（im 479–687 聚集）+ 1 帧选择失败（fitness 0.58 / ADD-S 36.6mm）。
+- **Phase 2 Classical Baseline Complete**（oracle mask 受控条件）；PROJECT_SPEC 基线表已填入；
+  决策 D8/D9 记录于 PROJECT_CONTEXT；EXP-006。
+
 ## 2026-08-30 — Phase 2 / P2.3-S：几何路线（route A）—— GO
 
 - 新增 `src/r3p/pose/geo_init.py`：oracle mask→物体点云→PCA→24 proper-rotation 假设→

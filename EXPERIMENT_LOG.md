@@ -214,6 +214,37 @@
   - 已知局限（诚实声明）：oracle mask；roll 歧义影响非对称指标（bottle 1/10）；重遮挡下失败（bowl 2/10）；单帧未批处理。
 - **Decision**：P2.3-S 完成。规模放大（全场景/全帧）、遮挡失败改进、与 Phase 3 的衔接——等待批准，本轮不延伸。
 
+---
+
+## EXP-006 — P2.4：Classical baseline 工程验证（75+75 帧全量）—— **Phase 2 Complete**
+
+- **日期**：2026-08-30
+- **Phase**：2（P2.4，工程收尾）
+- **Question**：P2.3-S 的成功是否偶然？几何 Classical pipeline 能否作为后续系统的稳定 baseline？
+- **Setup**：参数与 P2.3-S **完全冻结一致**（24 假设 / ICP 3cm→1cm→3mm / fitness 选择 / 同 metrics / 同成功判据），唯一变化 = 帧数 10 → **75+75 全量**（obj5 scene 50、obj13 scene 53 全部含目标帧）。oracle mask（受控条件）；推理零 GT pose。
+- **Result**：
+  | 物体 | solver | pose success | 成功帧主指标 | 失败分布 |
+  | --- | ---: | ---: | --- | --- |
+  | obj5 bottle | **75/75 (100%)** | **70/75 (93.3%)** | ADD median **1.30mm** / p90 1.74 / max 2.01 | roll 歧义 ×5 |
+  | obj13 bowl | **59/75 (78.7%)** | **58/75 (77.3%)** | ADD-S median **2.67mm** / p90 2.83 / max 3.19 | no-converge ×16 + 选择失败 ×1 |
+  - 稳定性：150 帧零崩溃、零 NaN、零 insufficient_observation、零 runtime_error；单帧推理 0.8s（bottle）/ 3.1s（bowl），总 wall ~6.6 min（CPU）。
+- **工程发现与修复（本轮最有价值的产出）**：
+  1. **运行间非确定性**：初版 20 帧回归发现 bowl solver 8→7 翻转；逐帧 diff 定位到全管线第 3 位小数级抖动。
+     两个来源：Open3D `voxel_down_sample` 输出顺序不保证 + ICP/法线估计的**多线程 FP 归约顺序**。
+     修复：点云字典序规范化 + `OMP_NUM_THREADS=1`（~2× 耗时）。验证：单线程下两次运行**逐位一致**（回归测试固化）。
+     影响：多线程下 bowl solver 在 7–9/10 间波动；单线程 canonical = 9/10。决策 D9。
+  2. taxonomy 对齐为五类：success / insufficient_observation / icp_no_converge / hypothesis_selection_failure / roll_symmetry_ambiguity。
+  3. 推理接口固化为 `geo_init.estimate_pose`（Phase 3 学习方法按同签名替换）。
+- **与 P2.3-S 一致性**：bottle 90%→93.3%、bowl 80%→77.3%——小幅波动，**结论一致**；失败模式完全相同且更系统化：
+  bottle 5 帧 roll 歧义呈同一签名（ADD≈62mm / fitness≈0.95，即几何正确但绕轴错位一个标签宽度）；
+  bowl 16 帧 no-converge 聚集在 im 479–687（视频中碗被罐头重遮挡的区段）+ 1 帧选择失败（fitness 0.58 / ADD-S 36.6mm）。
+- **Conclusion**：**Phase 2 Classical Baseline Complete**。基线能力：bottle 93.3% @ ADD median 1.3mm；
+  bowl 77.3% @ ADD-S median 2.7mm；失败可解释、可分类、集中且非偶然。局限（诚实声明）：
+  oracle mask（非端到端）；bowl 对称性使 ADD 不可用；重遮挡段与 roll 歧义是已知弱点。
+- **Decision**：Phase 2 收官。Phase 3（Learning-based）的动机由此完全成立：Classical 几何方法的失败模式
+  （roll 歧义、遮挡脆弱）与外观路线的失败（域差）都是学习方法的靶点。等待批准后规划 3090 迁移。
+
+
 
 
 

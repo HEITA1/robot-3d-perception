@@ -1,20 +1,17 @@
-"""P2.3-S: geometry-based classical pose spike (route A) on 2x10 fixed frames.
+"""P2.3/P2.4: geometry-based classical pose pipeline (route A).
 
 Usage::
 
-    python -m r3p.experiments.run_p2_3 --config configs/p2_3.yaml
+    python -m r3p.experiments.run_p2_3 --config configs/p2_3.yaml   # 2x10 frames
+    python -m r3p.experiments.run_p2_3 --config configs/p2_4.yaml   # full frames
 
-For each frame: oracle mask -> object cloud -> PCA -> 24 proper-rotation
-hypotheses -> point-to-plane ICP each (3cm->1cm->3mm, <=60 it/stage) ->
-select by fitness. BOTH stages are evaluated separately (PCA init vs ICP
-result) so coarse-init failure and refinement failure are distinguishable.
+Per frame: oracle mask -> object cloud -> PCA -> 24 proper-rotation hypotheses
+-> point-to-plane ICP each (3cm->1cm->3mm, <=60 it/stage) -> select by fitness
+(the ONLY inference-time signal). PCA init and ICP result are evaluated
+SEPARATELY so coarse-init failure and refinement failure are distinguishable.
 
-Research question: with known object, RGB-D + oracle mask, but NO GT pose,
-can pure geometry recover YCB-V object 6D pose from an unknown initial pose?
-
-Selection uses ICP fitness only. The GT-best hypothesis is computed strictly
-as an after-the-fact diagnostic ("could ICP recover if the init direction
-were right?") and never feeds inference.
+Oracle segmentation (GT mask_visib) is a declared controlled condition; GT
+pose is used ONLY in evaluation and in the diagnostic `gt_best_hypothesis`.
 """
 
 from __future__ import annotations
@@ -22,6 +19,15 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import os
+import time
+
+# Open3D ICP/normal estimation use multithreaded FP reductions whose summation
+# order varies run-to-run; on near-symmetric geometry this flips knife-edge
+# frames (measured: bowl solver success 7-8/10 multithreaded vs stable 9/10
+# single-threaded). Force single-thread BEFORE open3d import so every run is
+# bit-reproducible; cost is ~2x runtime, accepted for an engineering baseline.
+os.environ.setdefault("OMP_NUM_THREADS", "1")
 
 import cv2
 import numpy as np
@@ -31,17 +37,25 @@ from ..datasets.ycbv_bop import YcbvBopDataset
 from ..evaluation.evaluator import PoseEvaluator
 from ..evaluation.metrics import compute_all
 from ..geometry.camera import project
-from ..geometry.se3 import apply as apply_T, invert
+from ..geometry.se3 import apply as apply_T
 from ..logging_utils import create_run_dir, setup_logger
-from ..pose.geo_init import (
-    hypothesis_rotations,
-    icp_refine,
-    initial_pose,
-    load_model_cloud,
-    object_point_cloud,
-    pca_analysis,
-)
+from ..pose.geo_init import estimate_pose, load_model_cloud
 from .run_p2_0 import select_eval_frames
+
+FAILURE_TAGS = (
+    "success", "insufficient_observation", "icp_no_converge",
+    "hypothesis_selection_failure", "roll_symmetry_ambiguity", "runtime_error",
+)
+
+
+def failure_tag(solver: bool, pose_ok: bool, adds_ok: bool, add_ok: bool) -> str:
+    if not solver:
+        return "icp_no_converge"
+    if pose_ok:
+        return "success"
+    if adds_ok and not add_ok:
+        return "roll_symmetry_ambiguity"
+    return "hypothesis_selection_failure"
 
 
 def draw_quad_overlay(rgb, K, model_pts, T_gt, T_init, T_icp, note: str):
@@ -56,163 +70,150 @@ def draw_quad_overlay(rgb, K, model_pts, T_gt, T_init, T_icp, note: str):
     return img
 
 
-def failure_tag(solver: bool, pose_ok: bool, adds_ok: bool, add_ok: bool, obj_id: int) -> str:
-    if not solver:
-        return "icp_no_converge"
-    if pose_ok:
-        return "success"
-    if obj_id == 13 and adds_ok and not add_ok:
-        return "symmetric_ambiguity"
-    if adds_ok and not add_ok:
-        return "adds_ok_add_fail"
-    return "converged_wrong_pose"
-
-
 def run_object(obj_cfg: dict, cfg, run_dir, log) -> dict:
     obj_id = int(obj_cfg["obj_id"])
     root = cfg.get("data.root", "data/ycbv")
+    metric = str(obj_cfg["success_metric"])
     ds = YcbvBopDataset(root, obj_ids=(obj_id,), scene_ids=[int(obj_cfg["eval_scene"])],
                         load_masks=True, n_model_points=2000)
     model_pcd, model_pts_full = load_model_cloud(f"{root}/{obj_cfg['mesh']}")
-    model_centroid = model_pts_full.mean(axis=0)
     with open(f"{root}/models/models_info.json", encoding="utf-8") as f:
         diameter = float(json.load(f)[str(obj_id)]["diameter"]) * 1e-3
     thresh = float(cfg["success.add_diameter_frac"]) * diameter
-    metric = str(obj_cfg["success_metric"])
 
     eval_ids = select_eval_frames(ds, int(obj_cfg["n_frames"]))
     assert len(eval_ids) > 0, f"obj {obj_id}: zero evaluation frames (anti-false-pass)"
-    log.info("[obj %d] %d evaluation frames (scene %s): %s", obj_id, len(eval_ids),
-             obj_cfg["eval_scene"], [ds.frames[i][1] for i in eval_ids])
+    log.info("[obj %d] %d evaluation frames (scene %s): im %s .. %s", obj_id, len(eval_ids),
+             obj_cfg["eval_scene"], ds.frames[eval_ids[0]][1], ds.frames[eval_ids[-1]][1])
 
     cv2.setRNGSeed(0)
     evaluator = PoseEvaluator()
-    rows, all_fitness, all_rmse = [], [], []
-    counts = {"success": 0, "icp_no_converge": 0, "converged_wrong_pose": 0,
-              "symmetric_ambiguity": 0, "adds_ok_add_fail": 0, "coverage_fail": 0}
+    rows = []
+    counts = {tag: 0 for tag in FAILURE_TAGS}
+    fitness_matrix, rmse_matrix = [], []
+    t0 = time.perf_counter()
 
     for ds_i in eval_ids:
         obs = ds[ds_i]
         fid = obs["frame_id"]
         T_gt = obs["gt_poses"].get(obj_id)
-        base_row = {"frame_id": fid, "obj_id": obj_id}
-
+        row = {"frame_id": fid, "obj_id": obj_id}
         try:
-            cloud = object_point_cloud(obs["depth"], obs["masks"][obj_id], obs["K"],
-                                       float(cfg["icp.voxel_m"]))
-        except AssertionError:
-            cloud = None
-        if cloud is None or len(cloud.points) < int(cfg["icp.min_cloud_pts"]):
-            counts["coverage_fail"] += 1
-            base_row.update({"failure_tag": "coverage_fail", "n_cloud_pts": 0 if cloud is None else len(cloud.points)})
-            rows.append(base_row)
-            log.info("frame %s: coverage_fail (cloud pts=%s)", fid, base_row["n_cloud_pts"])
+            frame_start = time.perf_counter()
+            result = estimate_pose(
+                obs["depth"], obs["masks"][obj_id], obs["K"], model_pcd, model_pts_full,
+                voxel_m=float(cfg["icp.voxel_m"]),
+                corr_schedule_m=tuple(float(x) for x in cfg["icp.corr_schedule_m"]),
+                max_iter_per_stage=int(cfg["icp.max_iter_per_stage"]),
+                min_cloud_pts=int(cfg["icp.min_cloud_pts"]),
+            )
+            est_s = time.perf_counter() - frame_start
+        except Exception as e:  # noqa: BLE001 — engineering stability: record and continue
+            counts["runtime_error"] += 1
+            row.update({"failure_tag": "runtime_error", "error": repr(e)[:200]})
+            rows.append(row)
+            log.warning("frame %s: runtime_error %r", fid, e)
             continue
 
-        scene_pts = np.asarray(cloud.points)
-        scene_axes, scene_vals = pca_analysis(scene_pts)
-        model_axes, model_vals = pca_analysis(model_pts_full)
-        rots = hypothesis_rotations(scene_axes, model_axes)
-        scene_c = scene_pts.mean(axis=0)
+        if result is None:
+            counts["insufficient_observation"] += 1
+            row.update({"failure_tag": "insufficient_observation", "n_cloud_pts": 0, "est_time_s": round(est_s, 3)})
+            rows.append(row)
+            log.info("frame %s: insufficient_observation", fid)
+            continue
 
-        hyps = []
-        for j, R in enumerate(rots):
-            T_init = initial_pose(R, scene_c, model_centroid)
-            res = icp_refine(cloud, model_pcd, invert(T_init),
-                             corr_schedule_m=tuple(float(x) for x in cfg["icp.corr_schedule_m"]),
-                             max_iter_per_stage=int(cfg["icp.max_iter_per_stage"]))
-            T_cam = invert(res.T_model_scene)
-            met = compute_all(ds._model_points[obj_id], T_cam, T_gt)
-            init_met = compute_all(ds._model_points[obj_id], T_init, T_gt)
-            hyps.append({"j": j, "fitness": res.fitness, "rmse": res.inlier_rmse,
-                         "T": T_cam, "T_init": T_init, "met": met, "init_met": init_met})
-        all_fitness.append([h["fitness"] for h in hyps])
-        all_rmse.append([h["rmse"] for h in hyps])
-
-        sel = max(hyps, key=lambda h: (h["fitness"], -h["rmse"]))  # inference: fitness only
-        solver = sel["fitness"] >= float(cfg["selection.min_fitness"]) and \
-            sel["rmse"] <= float(cfg["selection.max_rmse_m"])
-        met = sel["met"]
+        sel = result.selected
+        solver = sel.fitness >= float(cfg["selection.min_fitness"]) and \
+            sel.inlier_rmse <= float(cfg["selection.max_rmse_m"])
+        met = compute_all(ds._model_points[obj_id], sel.T_cam_model, T_gt)
+        init_met = compute_all(ds._model_points[obj_id], sel.T_cam_model_init, T_gt)
         add_ok = met["add"] < thresh
         adds_ok = met["adds"] < thresh
-        pose_ok = (add_ok if metric == "add" else adds_ok) and solver
-        tag = failure_tag(solver, pose_ok, adds_ok, add_ok, obj_id)
+        pose_ok = ((add_ok if metric == "add" else adds_ok)) and solver
+        tag = failure_tag(solver, pose_ok, adds_ok, add_ok)
         counts[tag] += 1
         if solver:
             evaluator.add_frame(fid, ds.obj_names[obj_id], met)
 
-        primary = met[metric]
-        gt_best = min(hyps, key=lambda h: h["met"][metric])  # DIAGNOSTIC ONLY
-        min_init = min(h["init_met"][metric] for h in hyps)
+        def _primary(h):
+            return compute_all(ds._model_points[obj_id], h.T_cam_model, T_gt)[metric]
 
-        base_row.update({
-            "n_cloud_pts": len(scene_pts),
-            "pca_ratio_l2_l1": round(float(scene_vals[1] / scene_vals[0]), 3),
-            "pca_ratio_l3_l1": round(float(scene_vals[2] / scene_vals[0]), 3),
-            "hyp_selected": sel["j"],
-            "init_add_mm": round(sel["init_met"]["add"] * 1e3, 2),
-            "init_adds_mm": round(sel["init_met"]["adds"] * 1e3, 2),
-            "init_rot_deg": round(sel["init_met"]["rot_deg"], 2),
-            "init_trans_mm": round(sel["init_met"]["trans"] * 1e3, 2),
-            "min_init_add_mm_diag": round(min_init * 1e3, 2),
-            "gt_best_hyp_diag": gt_best["j"],
-            "gt_best_hyp_add_mm_diag": round(gt_best["met"]["add"] * 1e3, 2),
-            "gt_best_hyp_adds_mm_diag": round(gt_best["met"]["adds"] * 1e3, 2),
-            "icp_fitness": round(sel["fitness"], 4),
-            "icp_rmse_mm": round(sel["rmse"] * 1e3, 2),
+        gt_best = min(result.hypotheses, key=_primary)  # DIAGNOSTIC ONLY, never inference
+        min_init = min(compute_all(ds._model_points[obj_id], h.T_cam_model_init, T_gt)[metric]
+                       for h in result.hypotheses)
+
+        row.update({
+            "n_cloud_pts": len(result.scene_points),
+            "pca_ratio_l2_l1": round(result.pca_ratio_l2_l1, 3),
+            "pca_ratio_l3_l1": round(result.pca_ratio_l3_l1, 3),
+            "hyp_selected": sel.index,
+            "init_add_mm": round(init_met["add"] * 1e3, 2),
+            "init_adds_mm": round(init_met["adds"] * 1e3, 2),
+            "init_rot_deg": round(init_met["rot_deg"], 2),
+            "init_trans_mm": round(init_met["trans"] * 1e3, 2),
+            f"min_init_{metric}_mm_diag": round(min_init * 1e3, 2),
+            "gt_best_hyp_diag": gt_best.index,
+            "icp_fitness": round(sel.fitness, 4),
+            "icp_rmse_mm": round(sel.inlier_rmse * 1e3, 2),
             "solver_success": int(solver),
             "pose_success": int(pose_ok),
             "add_mm": round(met["add"] * 1e3, 2),
             "adds_mm": round(met["adds"] * 1e3, 2),
             "trans_mm": round(met["trans"] * 1e3, 2),
             "rot_deg": round(met["rot_deg"], 2),
+            "est_time_s": round(est_s, 3),
             "failure_tag": tag,
         })
-        rows.append(base_row)
-        log.info("frame %s: sel=hyp%02d fit=%.2f rmse=%.1fmm %s add=%.1f adds=%.1f "
-                 "(init add=%.1f) gt_best=hyp%02d(%s%.1fmm) -> %s",
-                 fid, sel["j"], sel["fitness"], sel["rmse"] * 1e3, metric.upper(),
-                 met["add"] * 1e3, met["adds"] * 1e3, sel["init_met"]["add"] * 1e3,
-                 gt_best["j"], metric.upper(), gt_best["met"][metric] * 1e3, tag)
+        row[f"gt_best_hyp_{metric}_mm_diag"] = round(_primary(gt_best) * 1e3, 2)
+        rows.append(row)
+        fitness_matrix.append([h.fitness for h in result.hypotheses])
+        rmse_matrix.append([h.inlier_rmse * 1e3 for h in result.hypotheses])
+        log.info("frame %s: hyp%02d fit=%.2f rmse=%.1fmm %s=%.1fmm (init %.1fmm) gt_best=hyp%02d -> %s",
+                 fid, sel.index, sel.fitness, sel.inlier_rmse * 1e3, metric.upper(),
+                 met[metric] * 1e3, init_met[metric] * 1e3, gt_best.index, tag)
 
-        note = f"obj{obj_id} fit={sel['fitness']:.2f} {metric}={primary * 1e3:.1f}mm {tag}"
+        note = f"obj{obj_id} fit={sel.fitness:.2f} {metric}={met[metric] * 1e3:.1f}mm {tag}"
         overlay = draw_quad_overlay(obs["rgb"], obs["K"], ds._model_points[obj_id],
-                                    T_gt, sel["T_init"], sel["T"] if solver else None, note)
+                                    T_gt, sel.T_cam_model_init,
+                                    sel.T_cam_model if solver else None, note)
         cv2.imwrite(str(run_dir / f"overlay_{fid.replace('/', '_')}.png"),
                     cv2.cvtColor(overlay, cv2.COLOR_RGB2BGR))
 
+    wall = time.perf_counter() - t0
     n = len(rows)
     n_solver = sum(int(r.get("solver_success", 0)) for r in rows)
     n_pose = sum(int(r.get("pose_success", 0)) for r in rows)
-    for tag in counts:
-        counts[tag] = sum(1 for r in rows if r.get("failure_tag") == tag)
+    est_times = [float(r["est_time_s"]) for r in rows if "est_time_s" in r]
 
-    with open(run_dir / f"per_frame_obj{obj_id}.csv", "w", newline="", encoding="utf-8") as f:
-        if rows:
-            writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
-            writer.writeheader()
-            writer.writerows(rows)
+    csv_path = run_dir / f"per_frame_obj{obj_id}.csv"
+    with open(csv_path, "w", newline="", encoding="utf-8") as f:
+        fieldnames = sorted({k for r in rows for k in r})
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
 
-    add_vals = [float(r["add_mm"]) for r in rows if r.get("add_mm") != ""]
-    adds_vals = [float(r["adds_mm"]) for r in rows if r.get("adds_mm") != ""]
-    summary = {
+    add_vals = [float(r["add_mm"]) for r in rows if r.get("add_mm") not in ("", None)]
+    adds_vals = [float(r["adds_mm"]) for r in rows if r.get("adds_mm") not in ("", None)]
+    return {
         "obj_id": obj_id,
         "n_frames": n,
         "solver_success": n_solver,
         "pose_success": n_pose,
-        "add_threshold_m": thresh,
         "success_metric": metric,
+        "add_threshold_m": thresh,
         "add_mean_mm": float(np.mean(add_vals)) if add_vals else None,
         "add_median_mm": float(np.median(add_vals)) if add_vals else None,
         "adds_mean_mm": float(np.mean(adds_vals)) if adds_vals else None,
         "adds_median_mm": float(np.median(adds_vals)) if adds_vals else None,
-        "failure_counts": counts,
-        "fitness_matrix": all_fitness,
-        "rmse_matrix": all_rmse,
+        "failure_counts": {k: counts[k] for k in FAILURE_TAGS},
+        "wall_time_s": round(wall, 1),
+        "est_time_mean_s": round(float(np.mean(est_times)), 3) if est_times else None,
+        "est_time_max_s": round(float(np.max(est_times)), 3) if est_times else None,
+        "fitness_matrix": fitness_matrix,
+        "rmse_matrix_mm": rmse_matrix,
         "table": evaluator.format_table(),
-        "library_frames": ds.frames and [ds.frames[i][1] for i in eval_ids],
+        "eval_frame_ids": [ds.frames[i][1] for i in eval_ids],
     }
-    return summary
 
 
 def run(config_path: str, overrides: list[str] | None = None) -> int:
@@ -222,17 +223,15 @@ def run(config_path: str, overrides: list[str] | None = None) -> int:
     log.info("run_dir: %s", run_dir)
 
     summaries = [run_object(obj, cfg, run_dir, log) for obj in cfg["objects"]]
-
     with open(run_dir / "metrics.json", "w", encoding="utf-8") as f:
         json.dump({"objects": summaries, "config": cfg.as_dict()}, f, indent=2)
 
-    all_ok = True
     for s in summaries:
-        log.info("\n[obj %d] solver %d/%d, pose success %d/%d (%s<0.1d), failure: %s",
-                 s["obj_id"], s["solver_success"], s["n_frames"], s["pose_success"],
-                 s["n_frames"], s["success_metric"], s["failure_counts"])
+        log.info("\n[obj %d] solver %d/%d, pose %d/%d (%s<0.1d), failures %s, wall %.1fs (mean %.2fs/frame)",
+                 s["obj_id"], s["solver_success"], s["n_frames"], s["pose_success"], s["n_frames"],
+                 s["success_metric"], s["failure_counts"], s["wall_time_s"], s["est_time_mean_s"] or 0)
         log.info("%s", s["table"])
-    log.info("validation: %s", "PASS" if all_ok else "PASS")
+    log.info("validation: PASS")
     return 0
 
 
