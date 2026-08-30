@@ -1,0 +1,12 @@
+# Locked to the versions actually installed and validated in env `r3p`
+# (Python 3.11.16, CPU-only laptop) after: pytest 28/28 green + smoke experiment PASS.
+# See PROJECT_CONTEXT.md decision D5. Regenerate with:
+#   conda run -n r3p python -m pip freeze | grep -iE "^(numpy|scipy|opencv-python|open3d|pyyaml|matplotlib|tqdm|pytest)="
+numpy==2.4.6
+scipy==1.17.1
+opencv-python==5.0.0.93
+open3d==0.19.0
+PyYAML==6.0.3
+matplotlib==3.11.1
+tqdm==4.70.0
+pytest==9.1.1
