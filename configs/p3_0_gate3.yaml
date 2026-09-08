@@ -1,0 +1,62 @@
+# P3.0-S Gate 3: real YCB-V smoke test.
+#
+# Pipeline: oracle mask -> masked depth deprojection -> CoordNet canonical
+# correspondence -> RANSAC-Umeyama rigid alignment -> ICP refinement ->
+# ADD / ADD-S evaluation against GT.
+#
+# Inference uses ZERO GT pose information.  GT is only for final evaluation.
+# Oracle mask is a declared controlled condition (segmentation is not a
+# variable; matches Phase 2 classical baseline).
+#
+# ICP parameters are inherited from the P2.3-S frozen schedule (EXP-005/006).
+# RANSAC-Umeyama uses the function defaults (tested in Gate 1/2).
+
+data:
+  root: data/ycbv
+
+objects:
+  - obj_id: 5
+    scene: 50
+    test_frames: [620, 653, 721, 1044, 1113]
+    success_metric: add
+    diameter_mm: 196.463
+    threshold_01d_mm: 19.65
+    mesh: models/obj_000005.ply
+  - obj_id: 13
+    scene: 53
+    test_frames: [1, 93, 138, 162, 247]
+    success_metric: adds
+    diameter_mm: 161.922
+    threshold_01d_mm: 16.19
+    mesh: models/obj_000013.ply
+
+model:
+  checkpoint: outputs/p3_0/gate1/coord_net_bottle.pt
+  n_points: 1024
+
+ransac_umeyama:
+  threshold_m: 0.01
+  iters: 200
+  seed: 0
+
+icp:
+  voxel_m: 0.005
+  corr_schedule_m: [0.03, 0.01, 0.003]
+  max_iter_per_stage: 60
+  min_cloud_pts: 500
+
+correspondence_metrics:
+  - ransac_inlier_count
+  - ransac_inlier_ratio
+  - ransac_mean_inlier_residual_m
+  - post_icp_fitness
+  - post_icp_rmse_m
+
+success:
+  add_diameter_frac: 0.1
+  go_min_frames: 3
+  weak_min_frames: 2
+
+output:
+  root: outputs
+  name: p3_0_gate3

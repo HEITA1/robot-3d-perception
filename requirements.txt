@@ -10,3 +10,6 @@ PyYAML==6.0.3
 matplotlib==3.11.1
 tqdm==4.70.0
 pytest==9.1.1
+# Phase 3 (P3.0-S) optional: torch 2.13.0+cpu — lazy-imported by learn/ modules.
+# Install separately: conda install pytorch==2.13.0+cpu -c pytorch
+# Not in core dependencies because Phase 0-2 do not require it.

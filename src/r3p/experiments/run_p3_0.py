@@ -6,9 +6,10 @@ Subcommands:
           config, objective pass criteria: train ADD <= 5mm, aligned residual
           <= 3mm, final loss <= 20% of initial)
 
-Frozen by approval: CoordNet 6-64-128-256-3 (~50k params), Adam lr=1e-3,
-batch=16, <=500 epochs, per-point ADD loss with the render GT pose, fixed
-seeds. No hyperparameter search, no extra DR, no test-frame information.
+Frozen by approval: CoordNet (~58.6K params: local 6→64→128, global max-pool
+→ 128→128, head 256→128→3), Adam lr=1e-3, batch=16, <=500 epochs, per-point
+ADD loss with the render GT pose, fixed seeds. No hyperparameter search,
+no extra DR, no test-frame information.
 """
 
 from __future__ import annotations

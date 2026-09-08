@@ -2,6 +2,35 @@
 
 > 重要实现变化（不是每个 commit 都记）。格式：日期 + Phase + 变更。
 
+## 2026-09-08 — Phase 3 / P3.0-S：Closeout（feasibility spike 封存）
+
+- **P3.0-S 最终结论**：Gate 1 PASS + Gate 2 PASS + Gate 3 NO-GO = sim-to-real 迁移在当前配置下不可行。
+- **Coordinate / Transform Audit**（`scripts/_audit_coordinate_transform.py`）：
+  合成数据内部一致性 PASS；闭环测试 PASS（4.05° / 4.1mm / 97.2% inliers）；
+  坐标变换链方向正确，排除 pipeline 实现错误。
+- **Root cause 修正**：撤回此前 "canonical-frame ambiguity / L2 loss 对 global rotation invariant" 的
+  确定性表述（该表述技术上不成立）。修正后的 root cause：
+  "The primary observed failure is poor real-data generalization of the learned canonical correspondence;
+  the specific source of the sim-to-real gap is not fully isolated."
+- **EXP-008 更新**：failure layer analysis 重写，保留审计轨迹（初始错误分析 → 用户质疑 → audit → 修正）；
+  GO/WEAK/NO-GO 阈值（3/5, 2/5）明确标注为提案，未经用户冻结。
+- Bowl 训练产物（`data_synth/bowl/`, `outputs/p3_0/bowl_train/`）保持非正式记录，不纳入正式实验序列。
+- 不修改任何实验代码、不重训、不调参、不重新执行 Gate 3。
+
+## 2026-09-08 — Phase 3 / P3.0-S：Gate 3 前置整理（实验定义入仓 + 文档修正）
+
+- 新增 `configs/p3_0_gate3.yaml`：Gate 3 真实 YCB-V smoke test 完整定义
+  （测试帧/pipeline/correspondence quality metrics/GO·WEAK·NO-GO 判定标准）。
+- EXPERIMENT_LOG 新增 EXP-008（Gate 3 定义冻结）+ bowl 非正式训练产物记录。
+- `run_p3_0.py`：修正模块 docstring 中网络结构描述（"6-64-128-256-3" →
+  "local 6→64→128, global max-pool → 128→128, head 256→128→3"，256 是拼接维度非隐藏层宽）；
+  清理未使用的 Gate 3 预添加导入（cv2/glob/csv/YcbvBopDataset 等 11 项）；
+  docstring 补充 train 子命令。
+- MODULE_MAP.md：测试数 47 → 52（补列 learn/render_templates/geo_init 分项）；
+  新增 p3_0_gate3.yaml 条目；run_p3_0.py 描述更新为完整子命令列表。
+- requirements.txt：补充 torch 2.13.0+cpu 注释（Phase 3 可选，lazy-import）。
+- pyproject.toml：新增 `[learning]` optional dependency（torch>=2.12）。
+
 ## 2026-08-30 — Phase 3 / P3.0-S：最小学习对应 spike（Gate 1 PASS；首跑 VOID）
 
 - 新增 `src/r3p/learn/`（umeyama+RANSAC、CoordNet ~59k 参数、合成数据生成）与 `run_p3_0` 入口

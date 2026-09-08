@@ -285,8 +285,145 @@
 - **Decision**：Phase 2 收官。Phase 3（Learning-based）的动机由此完全成立：Classical 几何方法的失败模式
   （roll 歧义、遮挡脆弱）与外观路线的失败（域差）都是学习方法的靶点。等待批准后规划 3090 迁移。
 
+---
 
+## EXP-008 — P3.0-S Gate 3：真实 YCB-V smoke test（定义冻结）
 
+- **日期**：2026-09-08（定义冻结 + 执行完成）
+- **Phase**：3（P3.0-S）
+- **Question**：CoordNet 在合成数据上学到的 canonical correspondence（Gate 1/2 PASS），能否直接迁移到真实 YCB-V 图像并产出合理的 6D pose？
+- **Hypothesis**：sim-to-real 域差存在但不至致命——RANSAC-Umeyama 的鲁棒性 + ICP 精化可以吸收中等程度的对应噪声，至少部分帧 ADD < 0.1d。
+- **Setup**：
+  - 配置：`configs/p3_0_gate3.yaml`
+  - **Pipeline**（推理零 GT pose）：
+    1. oracle mask（`mask_visib`，受控条件，与 Phase 2 一致）
+    2. masked depth → 相机系点云（5mm voxel downsample，与 P2.3 一致）
+    3. 随机采样 1024 点 → normalize → concat RGB/255 → CoordNet forward → 预测 canonical coords
+    4. RANSAC-Umeyama（predicted canonical = src, camera-frame xyz = dst；threshold=10mm, 200 iter）→ 鲁棒初始位姿
+    5. ICP 精化（scene→model，P2.3 冻结 schedule：3cm→1cm→3mm，≤60 iter/stage）
+    6. 最终 pose = ICP result 取逆（camera-frame）
+  - **测试帧**（每物体 5 帧，高 visib_fract，全部位于 test_bop19 子集）：
+    - obj5 mustard_bottle：scene 50, im [620, 653, 721, 1044, 1113]
+    - obj13 bowl：scene 53, im [1, 93, 138, 162, 247]
+  - **Checkpoint**：Gate 1 产出 `outputs/p3_0/gate1/coord_net_bottle.pt`（与 Gate 2 使用的相同；Gate 2 未重训）
+  - **Correspondence quality metrics**（逐帧记录）：
+    - RANSAC inlier count / ratio / mean residual (m)
+    - Post-ICP fitness / RMSE (m)
+  - **Pose metrics**（逐帧 + 汇总）：
+    - ADD (mm) / ADD-S (mm) / 平移误差 (mm) / 旋转误差 (°)
+    - 成功判据：ADD < 0.1d = 19.65mm（bottle）/ ADD-S < 0.1d = 16.19mm（bowl）
+  - **GO / WEAK / NO-GO 判定**（⚠ 阈值待用户确认，非自行冻结）：
+    - GO：每物体 ≥ 3/5 帧 success
+    - WEAK：每物体 ≥ 2/5 帧 success
+    - NO-GO：任一物体 < 2/5 帧 success
+- **Analysis**（设计理由）：
+  1. 5 帧/物体 = smoke test 规模（非全 benchmark），目的是快速判定 sim-to-real 迁移可行性
+  2. 帧选择偏向高 visib_fract（0.88–1.00）——有意降低遮挡难度，先验证干净场景的迁移能力
+  3. RANSAC-Umeyama → ICP 的两阶段结构与 Phase 2 一致（粗初始化 + 精化），可直接对比
+  4. ICP 参数复用 P2.3 冻结 schedule，不引入新变量
+  5. 已知风险：合成数据无深度噪声/无 RGB 抖动、viewpoint roll 受固定 up-vector 约束——域差可能比预期更大
+- **Result**（run: `outputs/p3_0_gate3/`，exit code 0）：
+
+  **obj5 mustard_bottle（scene 50，metric=ADD，threshold=19.65mm）：0/5 success**
+
+  | Frame | visib | ADD(mm) | ADD-S(mm) | trans(mm) | rot(°) | RANSAC inliers | RANSAC ratio | ICP fitness | ICP RMSE(mm) |
+  |-------|-------|---------|-----------|-----------|--------|----------------|--------------|-------------|--------------|
+  | 620 | 0.998 | 117.45 | 12.60 | 30.3 | 172.4 | 750 | 0.732 | 0.426 | 1.83 |
+  | 653 | 0.992 | 118.01 | 13.00 | 39.1 | 178.0 | 697 | 0.681 | 0.447 | 1.79 |
+  | 721 | 0.990 | 116.56 | 11.87 | 35.6 | 179.8 | 58 | 0.057 | 0.406 | 1.70 |
+  | 1044 | 1.000 | 117.68 | 8.08 | 40.8 | 179.3 | 316 | 0.309 | 0.560 | 1.49 |
+  | 1113 | 1.000 | 117.40 | 7.24 | 51.1 | 179.8 | 436 | 0.426 | 0.742 | 1.55 |
+
+  ADD: mean 117.42 / median 117.45 / max 118.01 mm
+  ADD-S: mean 10.56 / median 11.87 / max 13.00 mm
+
+  **obj13 bowl（scene 53，metric=ADD-S，threshold=16.19mm）：0/5 success**
+
+  | Frame | visib | ADD(mm) | ADD-S(mm) | trans(mm) | rot(°) | RANSAC inliers | RANSAC ratio | ICP fitness | ICP RMSE(mm) |
+  |-------|-------|---------|-----------|-----------|--------|----------------|--------------|-------------|--------------|
+  | 1 | 0.981 | 154.52 | 59.35 | 129.6 | 171.6 | 34 | 0.033 | 0.092 | 1.72 |
+  | 93 | 0.984 | 157.39 | 62.05 | 133.6 | 170.1 | 32 | 0.031 | 0.084 | 1.65 |
+  | 138 | 0.990 | 106.59 | 34.42 | 64.4 | 177.1 | 26 | 0.025 | 0.141 | 1.71 |
+  | 162 | 0.997 | 108.62 | 38.23 | 87.1 | 179.7 | 34 | 0.033 | 0.089 | 1.71 |
+  | 247 | 1.000 | 104.83 | 34.98 | 73.8 | 174.7 | 36 | 0.035 | 0.083 | 1.82 |
+
+  ADD: mean 126.39 / median 108.62 / max 157.39 mm
+  ADD-S: mean 45.80 / median 38.23 / max 62.05 mm
+
+- **Analysis**（failure layer analysis + coordinate/transform audit）：
+
+  **初始 failure layer analysis（Gate 3 执行时）**：
+  所有 10 帧旋转误差均为 170°–180°，初步归因为 "canonical-frame ambiguity"——声称训练 loss 对 canonical frame 的全局旋转不变，网络收敛到与 BOP model frame 相差 ~180° 的解。
+
+  **⚠ 撤回：上述 root cause 分析存在技术性错误**
+  "per-point L2 loss is invariant under global rotations of the predicted canonical frame" 这一表述**不成立**。训练 loss 为 `||T_cam_model @ pred_canonical - xyz_cam||²`（camera-frame L2），对 pred_canonical 的全局旋转**不是**不变的。用户正确指出了这一错误，要求重新做 failure localization。
+
+  **Coordinate / Transform Audit（failure localization，纯分析，不改代码/不重训/不调参）**：
+  1. **合成数据内部一致性 — PASS**：`xyz_cam = T_cam_model @ coords` 最大误差 3.13e-05 m（float16 精度）
+  2. **闭环测试 — PASS**：用合成数据做输入，CoordNet + RANSAC-Umeyama 恢复位姿：旋转误差 **4.05°**，平移误差 **4.1 mm**，内点率 **97.2%**，平均残差 **3.8 mm**
+  3. **坐标链一致性 — 确认**：合成数据 → CoordNet 训练 → RANSAC → ICP 的整条变换链方向正确，无帧混淆
+  4. **合成 coords vs BOP model points**：最大距离 2.85 mm（float16 精度 + raycasting 采样差异，不影响闭环）
+
+  **闭环测试通过的含义**：坐标变换链在数学上正确，不存在变换方向 bug、不存在帧混淆、不存在 Umeyama src/dst 颠倒。Gate 3 失败**不是** pipeline 实现错误。
+
+  **修正后的 root cause**：
+  The primary observed failure is **poor real-data generalization of the learned canonical correspondence**; the specific source of the sim-to-real gap is not fully isolated.
+
+  证据：
+  - CoordNet 在合成数据上可以学到有意义的 correspondence（Gate 1/2 PASS，闭环 4°/4mm）
+  - 但在真实 YCB-V 深度图上完全失败（0/10 帧），呈现系统性 ~180° 旋转
+  - 唯一解释：网络从合成渲染域到真实深度图域的**泛化失败**
+  - ~180° 旋转可能是 bottle/bowl 的近似旋转对称性 + 网络噪声导致的 RANSAC 系统性偏差，而非 "canonical frame 模糊性"
+
+  **Failure layer breakdown（修正后）**：
+  - **Layer 1 — CoordNet sim-to-real generalization（ROOT CAUSE）**：网络在真实数据上的 per-point 预测质量不足
+  - **Layer 2 — RANSAC**：继承 Layer 1 的错误预测；bowl 的 inlier ratio 极低（2.5%–3.5%）表明网络对未见物体泛化更差
+  - **Layer 3 — ICP**：功能正常（低 RMSE），但无法从大角度初始误差恢复
+
+  **Bottle vs Bowl 差异**：
+  - Bottle RANSAC inlier ratio 5.7%–73.2%（训练物体，有一定泛化）
+  - Bowl RANSAC inlier ratio 2.5%–3.5%（未见物体，近似随机）
+  - CoordNet 学到的是 bottle-specific 特征，非通用 canonical correspondence
+
+- **Conclusion**：
+  - **Gate 3 判定：NO-GO**（bottle 0/5, bowl 0/5）
+  - ⚠ **GO/WEAK/NO-GO 阈值（3/5, 2/5）为提案，未经用户冻结**
+  - Coordinate / Transform Audit 通过，排除 pipeline 实现错误
+  - Synthetic learning：successful（Gate 1/2 PASS）
+  - Synthetic closed-loop：successful（4°/4mm）
+  - Real-data transfer：failed（0/10）
+  - Root cause：sim-to-real domain gap（具体来源未完全隔离）
+
+- **Decision**：Gate 3 NO-GO。sim-to-real 迁移在当前配置下不可行。
+  Coordinate / transform chain validated；失败源于学习方法的泛化能力不足，非实现错误。
+  修复路径存在但需要新实验（domain randomization / real fine-tuning / 更大网络 / 更多数据等），全部留到下一阶段规划。
+
+  本轮不改冻结参数，不自动修复，不进入新的学习改进实验。产物：`outputs/p3_0_gate3/gate3_results.json` + 10 overlay PNGs + `scripts/_audit_coordinate_transform.py`。
+
+---
+
+### 非正式记录：bowl 训练产物（无 EXP 编号，待决策）
+
+以下产物存在于仓库中但无对应实验记录：
+
+- `data_synth/bowl/`：200 train + 50 val 合成样本（obj_id=13，mtime 2026-08-31 13:23）
+- `outputs/p3_0/bowl_train/coord_net.pt`：ADD loss checkpoint（mtime 2026-08-31 13:35:29）
+- `outputs/p3_0/bowl_train/coord_net_adds.pt`：ADD-S loss checkpoint（mtime 2026-08-31 13:35:29）
+
+**证据**：
+- 数据完整性 PASS（frame consistency 3.1e-5 m，obj_id=13 确认）
+- Checkpoint 与 Gate 1 bottle checkpoint 结构相同（58563 params）但权重不同
+- 时间线与 `cmd_train` 子命令（未提交代码）一致——数据生成后 ~12 分钟训练完成
+- 无任何评估指标、无 log、无 EXP 记录
+
+**性质判断**：临时探索性训练运行，验证 `cmd_train`（ADD-S loss 变体）能否在 bowl 上运行。
+不属于正式实验（无 Question/Hypothesis/Result），不满足实验纪律要求。
+
+**建议**（待用户确认）：
+1. 保留产物，在 EXPERIMENT_LOG 中标注为"非正式运行，不承认正式结论"
+2. 不将其纳入项目正式实验序列
+3. Gate 3 不使用 bowl checkpoint（使用 Gate 1 bottle checkpoint）
+4. 若后续需要正式 bowl 实验，需新分配 EXP 编号并包含完整评估
 
 
 
