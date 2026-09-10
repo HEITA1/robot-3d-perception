@@ -1,0 +1,50 @@
+# EXP-013: FoundationPose feasibility (model-based register) -- FROZEN config.
+#
+# Folder naming: outputs/phase4_foundationpose/fp_exp004_feasibility (Phase 4
+# convention). EXPERIMENT_LOG entry: EXP-013.
+#
+# Frozen by approval: object/scene/frames identical to the P2.4 / P3.1 subsets
+# for same-frame comparability; oracle mask (declared controlled condition);
+# register() estimation path (no initial pose; GT-free, source-code audited);
+# metrics and threshold unchanged (ADD < 0.1d = 19.65mm).
+#
+# NOTE: this config is consumed by scripts/run_foundationpose_exp013.py on the
+# 3090 machine. It is NOT executed on the CPU laptop (backend must be
+# "foundationpose" there; "mock" exists only for local pipeline smoke tests
+# and its outputs are permanently flagged is_mock=true).
+
+experiment_id: fp_exp004_feasibility
+log_id: EXP-013
+method: FoundationPose
+mode: register                    # estimation path; NO initial pose
+backend: foundationpose           # on 3090; "mock" only for local chain smoke
+
+object_id: 5                      # 006_mustard_bottle
+object_name: 006_mustard_bottle
+scene_id: 50
+frame_ids: [620, 653, 721, 1044, 1113]
+
+mask_source: bop_gt_mask_visib    # oracle mask = DECLARED controlled condition
+initialization_mode: none         # register() requires no initial pose
+gt_pose_usage: evaluation_only
+
+data:
+  root: data/ycbv
+  depth_scale: 0.1                # raw uint16 -> meters: raw * scale * 1e-3
+  mesh: models/obj_000005.ply     # mm; adapter converts to meters (* 1e-3)
+
+success:
+  metric: add                     # asymmetric object -> ADD
+  diameter_mm: 196.463
+  threshold_mm: 19.65             # 0.1 * d
+
+foundationpose:
+  repo: https://github.com/NVlabs/FoundationPose
+  repo_commit: PENDING_3090       # pin at execution time
+  checkpoint_dir: PENDING_3090    # weights/ (refiner 2023-10-28-18-33-37,
+                                  # scorer 2024-01-11-20-02-45)
+environment: PENDING_3090
+
+output:
+  root: outputs/phase4_foundationpose
+  name: fp_exp004_feasibility
