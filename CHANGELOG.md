@@ -2,6 +2,16 @@
 
 > 重要实现变化（不是每个 commit 都记）。格式：日期 + Phase + 变更。
 
+## 2026-09-10 — Phase 3 / P3.1-F：几何分布审计（两个 failure regime）
+
+- 新增 `scripts/p3_1_f_geometry_distribution.py` + `docs/P3_1_F_GEOMETRY_DISTRIBUTION_AUDIT.md`
+  + `outputs/p3_1_f_geo_stats/`（JSON + 覆盖直方图 PNG）。
+- 测量网络真实输入（Gate 3 同种子采样 → max-radius 归一化）的分布 vs 合成（Gate 1/2 npz）：
+  bottle clean 轴 std 同量级、NN 域差 2.75×（≈1mm 噪声级）；721 压缩 4–18×/66 离群点；
+  bowl 压缩 4–16×/离群点 42–316 每帧/NN 域差 5.7–33×（对同物体非正式合成池）。
+- **结论**：real-domain 失败分两个 regime——clean bottle 近 in-distribution 仍翻转（朝向裕度问题）；
+  721/bowl 严重 OOD 致坍缩（分布问题）。分布差异只能直接解释后者。
+
 ## 2026-09-10 — Phase 3 / P3.1-E：输入敏感性诊断（几何通路驱动；外观假设否定）
 
 - 新增 `scripts/p3_1_e_input_sensitivity.py` + `docs/P3_1_E_INPUT_SENSITIVITY.md`。

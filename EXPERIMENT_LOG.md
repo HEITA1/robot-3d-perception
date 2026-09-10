@@ -470,6 +470,37 @@
   - 候选机制（H-e1 覆盖模式/H-e2 深度噪声/H-e3 容量）未隔离，需新实验，等待批准。
   - Gate 3 NO-GO、P2.4 Classical 基线均不变。
 
+---
+
+## EXP-011 — P3.1-F：Synthetic vs Real Geometry Distribution Audit——两个 failure regime 的划分
+
+- **日期**：2026-09-10
+- **Phase**：3（P3.1-F，只读分布审计）
+- **Question**：真实输入给 CoordNet 的几何分布与训练/验证 synthetic 几何分布差多少？
+  该差异能否为 ~176° orientation bias 提供直接证据？
+- **Setup**：测量网络真正收到的归一化 XYZ（复现 Gate 3 frame_seed 采样）+ canonical 系可见性覆盖
+  （real 用评测端 GT 反算；synth 用标签）；NN 域差对同物体合成池；深度质量统计（空洞/离群点）。
+  零模型/管线改动。入口：`scripts/p3_1_f_geometry_distribution.py`。
+- **Result**（`outputs/p3_1_f_geo_stats/`）：
+  | 组 | cam_norm 轴 std vs synthetic | NN 域差（基线 0.475mm） | 深度离群点 | 覆盖 L1 |
+  | --- | --- | ---: | ---: | --- |
+  | bottle clean | 同量级（差 21–33%） | **2.43–3.27×**（≈1mm 噪声级） | 0 | 0.72–0.99（合成单 view 自然波动 0.47–0.84） |
+  | bottle 721 | 压缩 4–18× | 12.68× | **66**（mask 泄漏确认） | 0.83 |
+  | bowl | 压缩 4–16× | **5.7–33.3×** | **42–316/帧** | 0.40–0.60 |
+- **Analysis（核心产出：两个 failure regime 的划分）**：
+  1. **Regime 1 — clean bottle**：几何近 in-distribution（NN 差 ≈1mm 噪声级）却发生确定性 176.5° 翻转
+     → 不是分布问题，是**朝向决策零裕度/朝向锚点缺失**（网络在真实几何扰动下无稳定朝向解）。
+  2. **Regime 2 — 721 + bowl**：严重几何 OOD（尺度污染 10–20×、离群点 42–316/帧、NN 域差 12–87×）
+     → 预测坍缩的直接原因之一；但 P3.1-C 证明即使此类帧，固定旋转+ICP 仍恢复 ~1–2mm pose。
+  3. 合成对照基线补齐：单合成 view 对 50-view 均值的 L1 自然波动 0.47–0.84——real clean 的 0.72–0.99
+     仅略超，覆盖缺失不构成翻转的直接解释（H-f3 部分削弱）。
+- **Conclusion / Decision**：
+  - 对用户问题的回答：**分布差异对 Regime 2 是直接证据；对 Regime 1（clean bottle）不是**——
+    clean bottle 的翻转需要"朝向裕度/锚点"层面的解释（H-f1），分布审计无法提供。
+  - 若重启学习路线的杠杆分化：Regime 1 → 朝向等变性/锚点设计；Regime 2 → 几何域对齐
+    （深度噪声/泄漏/遮挡模拟）。等待批准，本轮不延伸。
+  - 审计脚本自身的 3 处实现问题（键序/数组覆盖/跨物体参考池）已修正并记录，早期跨物体 bowl NN 值作废。
+
 ### 非正式记录：bowl 训练产物（无 EXP 编号，待决策）
 
 以下产物存在于仓库中但无对应实验记录：
