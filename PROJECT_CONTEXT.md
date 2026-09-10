@@ -89,6 +89,7 @@ RGB-D
 | D7 | 2026-08-30 | 机器人系变换作为普通 SE(3) 变换放在 geometry 层，不引入 ROS | Scope Freeze |
 | D8 | 2026-08-30 | **Classical 基线换道**：SIFT+PnP 参考库路线证伪（EXP-002/003/004 三重归因：外观不相交/域差/ratio 自压制），改为几何路线 mask→PCA/OBB 24 假设→point-to-plane ICP（EXP-005 GO、EXP-006 规模验证一致） | 外观匹配依赖参考-查询表观重叠，跨场景 YCB-V 不满足；几何信号完全绕开 |
 | D9 | 2026-08-30 | ICP 运行采用单线程（OMP=1）保证逐位可复现 | 多线程 FP 归约抖动会翻转近对称刀刃帧（实测 bowl solver 7–9/10 波动）；~2× 耗时换取工程可复现 |
+| D10 | 2026-09-11 | **关闭自研学习路线，切换 FoundationPose 作为主要 model-based baseline**。Evidence：P3.1-C（固定 −176.5° canonical 旋转使 Gate 3 从 0/10 恢复 10/10 至 ~1–2mm，缺陷是单一低维 frame 偏移）、P3.1-D（合成与 BOP canonical frame 同一，排除数据约定 bug）、P3.1-E（RGB 消融不改变偏置——几何通路驱动，外观假设否定）、P3.1-F（两个 failure regime：clean bottle 近 in-distribution 仍翻转=朝向裕度缺失；721/bowl 严重 OOD=坍缩）、P3.1-G（真实高频深度噪声 σ≈0.26–0.40mm，1mm 增广不被支持，训练前停止）。Decision：关闭当前自研路线。Reason：现有证据不支持通过低成本数据/噪声修复继续推进，边际收益不足。Replacement：FoundationPose（成熟 model-based baseline，EXP-013，runtime 待 3090）。Future Research：Phase 5 robustness / controlled perturbation / failure analysis。**注意**：本决策不包含"FoundationPose 一定更好"的判断——仅是当前自研路线边际收益不足，切换到强 baseline 建立参照 |
 
 ## 7. 环境约束（长期有效）
 

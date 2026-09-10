@@ -5,6 +5,38 @@
 
 ---
 
+## Experiment Index（canonical IDs & cross-references）
+
+**编号规则**：EXP 编号授予"在冻结协议下产出新数值结果"的实验；只读审计/对既有产物的分析
+以 `docs/` 报告形式归档（有独立文档，无 EXP 编号）。历史编号保留不重排；顺序异常处已加注。
+
+| ID | 名称 | 状态/位置 |
+| --- | --- | --- |
+| EXP-000 | Phase 0 smoke | 本文件 |
+| EXP-001 | Phase 1 数据接口验证 | 本文件 |
+| EXP-002 | P2.0 SIFT+PnP spike | 本文件 |
+| EXP-003 | P2.1 渲染模板库 | 本文件 |
+| EXP-004 | P2.2 参考库 3→75 | 本文件 |
+| EXP-005 | P2.3-S 几何路线 GO | 本文件 |
+| EXP-006 | P2.4 工程验证（Phase 2 Complete） | 本文件（文件内位于 EXP-007 之后——插入顺序所致，内容完整） |
+| EXP-007 | P3.0-S Gate 1（首跑 VOID → 修正后 PASS） | 本文件 |
+| EXP-008 | P3.0-S Gate 3 NO-GO + 审计 | 本文件 |
+| **EXP-009**（追溯编号） | **P3.1-C** post-hoc 旋转诊断（0/10→10/10） | 本节尾注 + `outputs/p3_1_c_posthoc_rotation/` + `scripts/p3_1_c_posthoc_rotation.py` |
+| EXP-010 | P3.1-E 输入敏感性（几何通路归因） | 本文件 |
+| EXP-011 | P3.1-F 几何分布审计（两 regime） | 本文件 |
+| EXP-012 | P3.1-G depth noise sanity（1mm 不支持，训练前停止） | 本文件 |
+| EXP-013 | FoundationPose feasibility（obj5×5 帧） | **已注册，runtime 待 3090**；目录别名 `fp_exp004_feasibility`（Phase 4 命名惯例，见 `configs/fp_exp013.yaml`） |
+
+**无 EXP 编号的诊断文档**（只读审计/分析既有产物，按上述规则不编号）：
+P3.1-A → `docs/P3_1_A_ROBUST_NORMALIZATION.md`（单变量消融，Outcome D）；
+P3.1-B → `docs/P3_1_B_CANONICAL_FAILURE_ANALYSIS.md`（预测误差分层分解，~176.5° 发现）；
+P3.1-D → `docs/P3_1_D_CANONICAL_FRAME_AUDIT.md`（frame 同一性审计，Case B）。
+Gate 3 逐层定位 → `docs/P3_0_GATE3_DEBUG.md`（D1–D6）。
+
+---
+
+---
+
 ## EXP-000 — Phase 0 Smoke（pipeline 骨架验证）
 
 - **日期**：2026-08-30
@@ -284,6 +316,17 @@
   oracle mask（非端到端）；bowl 对称性使 ADD 不可用；重遮挡段与 roll 歧义是已知弱点。
 - **Decision**：Phase 2 收官。Phase 3（Learning-based）的动机由此完全成立：Classical 几何方法的失败模式
   （roll 歧义、遮挡脆弱）与外观路线的失败（域差）都是学习方法的靶点。等待批准后规划 3090 迁移。
+
+---
+
+## EXP-009（追溯编号）— P3.1-C：Post-hoc Canonical Rotation Diagnostic
+
+- **日期**：2026-09-10（追溯编号于 2026-09-11 文档整合时补记；原始记录见
+  `docs/` 各 P3.1 报告的引用与 `outputs/p3_1_c_posthoc_rotation/`）
+- **一句话**：预注册单一固定旋转（canonical Y 轴 −176.5°）使 Gate 3 从 0/10 恢复 10/10
+  （bottle ADD 0.73–1.75mm、bowl ADD-S 1.35–1.51mm）——Gate 3 失败被单一固定 canonical
+  frame 偏移完全解释。完整分析见 `docs/P3_1_E_INPUT_SENSITIVITY.md` 之前的
+  P3.1 报告链与 CHANGELOG 2026-09-10 条目。
 
 ---
 

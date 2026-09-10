@@ -9,7 +9,8 @@
 | `src/r3p/logging_utils.py` | console+file logger；run 目录管理 `outputs/<exp>/<timestamp>/` | [x] |
 | `src/r3p/utils/checkpoint.py` | 通用 dict checkpoint 保存/加载（Phase 3 接 torch） | [x] |
 | `src/r3p/geometry/camera.py` | 针孔相机：project / deproject（RGB-D→点云）、make_K | [x] |
-| `src/r3p/geometry/se3.py` | SE(3) 合成/求逆/apply；旋转矩阵/四元数/轴角；旋转角度误差 | [x] || `src/r3p/datasets/base.py` | 数据接口协议（rgb/depth/K/masks/gt_poses/model_points，单位：米） | [x] |
+| `src/r3p/geometry/se3.py` | SE(3) 合成/求逆/apply；旋转矩阵/四元数/轴角；旋转角度误差 | [x] |
+| `src/r3p/datasets/base.py` | 数据接口协议（rgb/depth/K/masks/gt_poses/model_points，单位：米） | [x] |
 | `src/r3p/datasets/synthetic.py` | 合成 RGB-D 场景（box/cylinder，结构化采样保留精确对称性，零下载） | [x] |
 | `src/r3p/datasets/ycbv_bop.py` | YCB-V BOP 格式数据集接口（单位转换集中边界：depth×depth_scale×1e-3、t mm→m、模型 mm→m；mask/gt_id/visib_fract） | [x] |
 | `src/r3p/evaluation/metrics.py` | ADD / ADD-S / 平移误差 / 旋转误差（纯 numpy + scipy cdist） | [x] |
@@ -46,9 +47,9 @@
 | `scripts/p2_0_intra_scene_control.py` | P2.0 归因对照实验（同场景参考库，排除评测帧） | [x] |
 | `src/r3p/experiments/run_p2_1.py` | P2.1 统一入口（渲染模板库 → SIFT → PnP，与 P2.0 可比） | [x] |
 | `src/r3p/experiments/run_p2_3.py` | P2.3 统一入口（两阶段评估/fitness 选择/失败 taxonomy/四重 overlay） | [x] |
-| `tests/` | se3/metrics/camera/synthetic/config（28）+ 真实 YCB-V（7）+ pose 合成回归（3）+ learn（5）+ render_templates（4）+ geo_init（5），共 52 项（含点云确定性回归） | [x] |
-| PnP / RANSAC（计划 `geometry/solver.py`） | 2D-3D 位姿求解 | [ ] Phase 2 |
-| ICP（计划 `registration/icp.py`） | 点云配准 / 位姿精化 | [ ] Phase 2 |
+| `tests/` | se3/metrics/camera/synthetic/config（28）+ 真实 YCB-V（7）+ pose 合成回归（3）+ learn（5）+ render_templates（4）+ geo_init（5），共 63 项（本地全量；CI 上数据相关测试自动跳过） | [x] |
+| PnP / RANSAC（`pose/sift_pnp.py` 内，cv2.solvePnPRansac） | 2D-3D 位姿求解（P2.0 路线，已证伪并关闭） | [x]（路线关闭） |
+| ICP（`pose/geo_init.py::icp_refine`，Open3D point-to-plane） | 点云配准 / 位姿精化（P2 Classical 基线核心） | [x] |
 | RGB/点云编码器 + 融合 + 位姿头（计划 `models/`） | 学习基线 | [ ] Phase 3 |
-| FoundationPose 适配（计划 `external/`） | 推理适配 + 统一评测接入 | [ ] Phase 4 |
+| FoundationPose 集成（`src/r3p/foundationpose/` + scripts） | adapter/schema/单位断言/mock backend/evaluator/EXP-013 runner/env checker；runtime 接线待 3090 | [x]（runtime ⏳） |
 | 遮挡/深度噪声模拟（计划 `robustness/`） | 鲁棒性实验 | [ ] Phase 5 |

@@ -43,13 +43,26 @@
 
 | Phase | 内容 | Exit Criteria | 状态 |
 | --- | --- | --- | --- |
-| 0 基础设施 | 仓库/数据接口/配置/日志/评测/可视化/测试/文档 | 统一入口完成一次最小实验（smoke） | **进行中** |
-| 1 3D Geometry | 相机模型/RGB-D/点云/坐标变换/SE(3)/旋转表示 | 输入 RGB-D 正确生成点云并完成坐标系转换与可视化 | 未开始 |
+| 0 基础设施 | 仓库/数据接口/配置/日志/评测/可视化/测试/文档 | 统一入口完成一次最小实验（smoke） | **完成** |
+| 1 3D Geometry | 相机模型/RGB-D/点云/坐标变换/SE(3)/旋转表示 | 输入 RGB-D 正确生成点云并完成坐标系转换与可视化 | **完成**（BOP 子集验证 + 数据验证报告） |
 | 2 Classical Pose | 几何路线：mask→PCA/OBB 24 假设→point-to-plane ICP（SIFT+PnP 路线已证伪，见 EXP-002/003/004） | ≥1 个 YCB-V 物体跑通完整 pipeline 并获得标准评价结果 | **完成（P2.4，oracle mask 受控条件）** |
-| 3 Learning Pose | RGB/点云编码器/融合/位姿头/loss/训练 | 学习基线稳定训练并在测试数据输出合理 6D 位姿 | 未开始 |
-| 4 FoundationPose | 安装/推理/评测适配/对比 | FoundationPose 进入统一实验体系 | 未开始 |
+| 3 Learning Pose | 自研学习对应路线（CoordNet，合成训练） | 学习基线稳定训练并在测试数据输出合理 6D 位姿 | **关闭**（Gate 3 NO-GO + P3.1-C/D/E/F/G 诊断收束，见 D10） |
+| 4 FoundationPose | 安装/推理/评测适配/对比 | FoundationPose 进入统一实验体系 | **进行中**（本地集成完成，EXP-013 runtime 待 3090） |
 | 5 鲁棒性研究 | 遮挡/噪声实验/失败分析/一个改进/Ablation | 得到有明确实验依据的改进并验证有效 | 未开始 |
 | 6 工程包装 | 重构/测试/CLI/文档/Demo/报告 | 别人能理解、运行、展示；本人能讲清楚 | 未开始 |
+
+## 4b. 方法路线角色（Phase 4 起）
+
+```text
+Classical / Geometry Baseline（P2，冻结，93.3% / 77.3%）
+        ↓  对照组
+Diagnostic Route（P3.1-C/D/E/F/G，已收束——自研学习路线关闭的依据）
+        ↓
+FoundationPose（Phase 4 起的主要 model-based baseline，EXP-013，runtime 待 3090）
+```
+
+自研学习路线（CoordNet）已于 Gate 3 NO-GO + P3.1 诊断链完成后关闭（决策 D10）；
+其代码与记录保留为诊断依据，不再是当前主路线。
 
 ## 5. Scope Freeze（未经明确批准不得加入）
 
