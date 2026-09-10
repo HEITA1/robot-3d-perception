@@ -16,7 +16,7 @@
 | `src/r3p/evaluation/evaluator.py` | 逐帧累积 → 按物体汇总表 | [x] |
 | `src/r3p/pose/sift_pnp.py` | P2.0 经典基线构件：SIFT 参考库（深度提升）/ knn+ratio 匹配 / PnP-RANSAC+精化 | [x] |
 | `src/r3p/learn/` | P3.0-S 学习 spike：umeyama/RANSAC、CoordNet（~59k 参数逐点 canonical 回归）、合成数据生成（渲染器直出标签） | [x] |
-| `src/r3p/experiments/run_p3_0.py` | gen/train/gate1/sanity/gate2 子命令（sanity 为训练前强制门；train 支持 ADD/ADD-S loss） | [x] |
+| `src/r3p/experiments/run_p3_0.py` | gen/gate1/sanity/gate2 子命令（sanity 为训练前强制门）。注：曾有的 train 子命令（ADD-S loss 变体）随 P3.0-S closeout 回退，未入 git 历史；bowl checkpoint 为其非正式产物 | [x] |
 | `src/r3p/pose/geo_init.py` | P2.3 几何基线：mask→点云（确定性排序）→PCA→24 假设→point-to-plane ICP（推理零 GT pose）；`estimate_pose` = Phase 3 可替换推理接口 | [x] |
 | `src/r3p/pose/render_templates.py` | P2.1 渲染模板：ASCII PLY(UV/法线) 解析 + RaycastingScene CPU 渲染 + Fibonacci 视角 + Lambert 材质 | [x] |
 | `src/r3p/visualization/viz.py` | matplotlib 静态 PNG（headless 安全）+ Open3D 交互（可选） | [x] |
@@ -30,6 +30,11 @@
 | `configs/p2_3.yaml` | P2.3 几何基线配置（ICP schedule/选择阈值/成功判据，跑前冻结） | [x] |
 | `configs/p2_4.yaml` | P2.4 全量工程验证配置（75+75 帧，参数与 P2.3-S 冻结一致） | [x] |
 | `configs/p3_0_gate3.yaml` | P3.0-S Gate 3 真实 YCB-V smoke test 配置（测试帧/pipeline/判定标准） | [x] |
+| `scripts/p3_0_gate3.py` | Gate 3 执行脚本（独立入口，oracle mask→CoordNet→RANSAC→ICP→评测） | [x] |
+| `scripts/_audit_coordinate_transform.py` / `_debug_gate3.py` | 变换链审计（合成闭环 4°/4mm）/ D1–D6 逐层故障定位 | [x] |
+| `scripts/p3_1_a_robust_norm.py` | P3.1-A 单变量消融（max→p95 归一化，Outcome D） | [x] |
+| `scripts/p3_1_b_canonical_analysis.py` | P3.1-B 分层分解（raw/trans/rigid/sim，发现 ~176.5° 系统旋转） | [x] |
+| `scripts/p3_1_c_posthoc_rotation.py` | P3.1-C 判定性诊断（预注册固定旋转 −176.5°，0/10→10/10） | [x] |
 | `scripts/verify_ycbv_data.py` | 数据集下载后完整性验证（GT 存在性/文件配对/往返/GT 叠加） | [x] |
 | `scripts/p2_0_intra_scene_control.py` | P2.0 归因对照实验（同场景参考库，排除评测帧） | [x] |
 | `src/r3p/experiments/run_p2_1.py` | P2.1 统一入口（渲染模板库 → SIFT → PnP，与 P2.0 可比） | [x] |

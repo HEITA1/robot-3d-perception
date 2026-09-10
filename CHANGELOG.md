@@ -2,6 +2,16 @@
 
 > 重要实现变化（不是每个 commit 都记）。格式：日期 + Phase + 变更。
 
+## 2026-09-10 — Phase 3 / P3.1-C：固定旋转诊断（Gate 3 失败完全归因）
+
+- 新增 `scripts/p3_1_c_posthoc_rotation.py`：与 Gate 3 逐位同构的管线 + 单一预注册修正
+  （canonical Y 轴 −176.5°，来源 P3.1-B）；baseline 读已有 JSON 不重跑。
+- **结果：0/10 → 10/10**（bottle ADD 0.73–1.75mm rot 0.9–2.4°；bowl ADD-S 1.35–1.51mm）。
+  Gate 3 失败被完全解释：唯一致命缺陷 = 固定 canonical frame 偏移；逐点坍缩/尺度污染对 pose 无害
+  （Procrustes 旋转对均匀尺度不变 + ICP 清理）。Gate 3 NO-GO 维持（诊断性质）。
+- 一并入库前任 Agent 遗留的 P3.1-B 未提交文件（`scripts/p3_1_b_canonical_analysis.py` +
+  `docs/P3_1_B_CANONICAL_FAILURE_ANALYSIS.md`）；修正 MODULE_MAP 中对不存在子命令的错误记载。
+
 ## 2026-09-08 — Phase 3 / P3.0-S：Closeout（feasibility spike 封存）
 
 - **P3.0-S 最终结论**：Gate 1 PASS + Gate 2 PASS + Gate 3 NO-GO = sim-to-real 迁移在当前配置下不可行。

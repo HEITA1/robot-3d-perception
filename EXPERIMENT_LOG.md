@@ -402,6 +402,46 @@
 
 ---
 
+---
+
+## EXP-009 — P3.1-C：Post-hoc Canonical Rotation Diagnostic —— **固定旋转完全解释 Gate 3 失败（0/10 → 10/10）**
+
+- **日期**：2026-09-10
+- **Phase**：3（P3.1-C，诊断/定位实验，非正式 baseline）
+- **Question**：P3.1-B 发现的 ~176.5° 系统性 canonical 旋转，是否足以解释原 Gate 3 的 pose failure？
+- **Setup**（全部冻结，仅插入一个固定旋转）：
+  - 预注册修正旋转：**绕 canonical Y 轴 −176.5°**（右手法则）。
+    轴来自 P3.1-B 逐轴相关签名（−,+,−，clean bottle：X −0.84 / Y +0.57 / Z −0.997）；
+    角度来自 P3.1-B rigid alignment 均值（clean bottle 176.6° / bowl 176.5° / 全体 175.1–179.0°）。
+    **预注册 caveat**：符号不可从已发布证据恢复（±176.5° 的一阶相关签名相同）；错误符号的期望残差仅 ~7°
+    （物半径处 ~10mm），诊断在两种符号下均有效。
+  - 其余与 Gate 3 逐位同构（同 checkpoint/预处理/max-radius 归一化/sampling seeds/RANSAC/ICP/metrics）；
+    baseline 数字直接读取 `gate3_results.json`，**不重跑 baseline**。
+  - 入口：`scripts/p3_1_c_posthoc_rotation.py`（run: `outputs/p3_1_c_posthoc_rotation/`）。
+- **Result**：
+  | 物体 | Baseline | + 固定旋转修正 | 修正后主指标 | 修正后 ICP fitness |
+  | --- | ---: | ---: | --- | --- |
+  | obj5 bottle (ADD<19.65mm) | 0/5 | **5/5** | ADD **0.73–1.75mm**（mean 1.13），rot 0.9–2.4° | 0.88–0.96 |
+  | obj13 bowl (ADD-S<16.19mm) | 0/5 | **5/5** | ADD-S **1.35–1.51mm**（mean 1.46）；ADD 12.3–109.4mm（对称等价类内） | 0.78–0.90 |
+  - 预注册符号校验：bottle 修正后 rot 仅 0.9–2.4°，远小于错误符号预期的 ~7° 额外残差 → 所选符号与真实失配一致。
+- **Analysis**：
+  1. **判定性回答：是。** 单一固定 canonical 旋转把 Gate 3 从 0/10 翻正到 10/10，且 bottle 修正后精度
+    （ADD ~1mm，rot ~1–2°）与合成域能力（Gate 2 val ADD 5.8mm）同量级甚至更好（ICP 精化功劳）。
+  2. **失败模型精化（修正 P3.1-B 的部分判断）**：frame 721（归一化污染、预测"坍缩 18×"）修正后 ADD 1.75mm——
+    均匀尺度坍缩**不破坏** Kabsch/Procrustes 的旋转估计（尺度作为正标量因子从正交 argmax 中消去），平移被
+    Umeyama 吸收，度量级残差由 ICP 用完整模型清理。**对 pose 而言，逐点坍缩不是致命的；致命的只有 fixed frame offset。**
+  3. bowl 的 rot 11.6–133.6° 但 ADD-S ~1.5mm：位姿落在旋转对称等价类内，指标行为与 Phase 2 的对称性结论一致。
+- **边界与诚实声明**：
+  - 原 **Gate 3 NO-GO 结论不变**：本实验是诊断，不是可部署 pipeline——修正旋转依赖 P3.1-B 的 GT 诊断知识，
+    推理系统无法获得；"P3.0-S 已经成功"的说法不成立。
+  - **~176.5° 偏移的来源仍未证明**（hypothesis）：合成/真实 canonical frame 约定差异、外观线索（标签正反）在两域
+    反转、或网络在真实域收敛到不同 frame mapping——均在候选列表，未被隔离。
+  - 符号/轴的预注册选择如上；错误符号的预期行为已量化，实测与正确符号一致。
+- **Decision**：P3.0-S 的失败归因由"泛化失败（来源不明）"精化为"**单一低维缺陷：固定 canonical frame 偏移**
+  （外加 bowl 的逐点坍缩——被证明对 pose 无害）"。Phase 3 的续/停决策现在有明确的证据基础，等待用户批准：
+  (a) 定位 176.5° 偏移来源的定向实验（候选：纯几何输入消融/外观消融/训练数据 frame 约定复查）；
+  (b) 按原纪律关闭自研路线（Classical 保持 baseline，Phase 4 FoundationPose 作为 learning 对照）。
+
 ### 非正式记录：bowl 训练产物（无 EXP 编号，待决策）
 
 以下产物存在于仓库中但无对应实验记录：
