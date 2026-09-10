@@ -38,6 +38,7 @@
 | `scripts/p3_1_d_canonical_frame_audit.py` | P3.1-D canonical frame 约定审计（读取器等价性/Kabsch 恒等/判别器，Case B） | [x] |
 | `scripts/p3_1_e_input_sensitivity.py` | P3.1-E 输入敏感性诊断（四条件 × 10 帧 + 合成对照，几何通路归因） | [x] |
 | `scripts/p3_1_f_geometry_distribution.py` | P3.1-F 几何分布审计（网络真实输入 vs 合成的分布/覆盖/域差量化，两 regime 划分） | [x] |
+| `scripts/p3_1_g_noise_sanity.py` | P3.1-G Phase 1 深度噪声量级 sanity check（3×3 高通残差 + 平滑门控；1mm 不被支持） | [x] |
 | `scripts/verify_ycbv_data.py` | 数据集下载后完整性验证（GT 存在性/文件配对/往返/GT 叠加） | [x] |
 | `scripts/p2_0_intra_scene_control.py` | P2.0 归因对照实验（同场景参考库，排除评测帧） | [x] |
 | `src/r3p/experiments/run_p2_1.py` | P2.1 统一入口（渲染模板库 → SIFT → PnP，与 P2.0 可比） | [x] |

@@ -2,6 +2,14 @@
 
 > 重要实现变化（不是每个 commit 都记）。格式：日期 + Phase + 变更。
 
+## 2026-09-10 — Phase 3 / P3.1-G Phase 1：depth noise sanity check（1mm 不被支持 → 停止）
+
+- 新增 `scripts/p3_1_g_noise_sanity.py`：3×3 高通残差 + 平滑门控的深度噪声量级检查（Gate 3 十帧，只读）。
+- **实测**：平滑表面高频噪声隐含 σ ≈ 0.26–0.40mm（clean bottle），中位残差 0.11–0.22mm（量化步长量级）；
+  污染帧局部 1.8–3.4mm 来自泄漏/多次反射（Regime 2 伪影）。
+- **按预批准决策树停止**：1mm i.i.d. 增广 ≈ 实测 3×，不被支持；未训练、未自选新 σ。
+  建议量级 σ ∈ [0.25, 0.5]mm（高频）或另行提案结构化伪影建模。EXP-012。
+
 ## 2026-09-10 — Phase 3 / P3.1-F：几何分布审计（两个 failure regime）
 
 - 新增 `scripts/p3_1_f_geometry_distribution.py` + `docs/P3_1_F_GEOMETRY_DISTRIBUTION_AUDIT.md`
