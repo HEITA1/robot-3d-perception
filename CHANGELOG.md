@@ -2,6 +2,14 @@
 
 > 重要实现变化（不是每个 commit 都记）。格式：日期 + Phase + 变更。
 
+## 2026-09-10 — Phase 3 / P3.1-D：Canonical Frame Convention Audit（Case B：frame 同一）
+
+- 新增 `scripts/p3_1_d_canonical_frame_audit.py` + `docs/P3_1_D_CANONICAL_FRAME_AUDIT.md`。
+- 审计结论：渲染器（手写 ASCII 解析）与评测（Open3D）读取同一 PLY 文件且输出逐位一致；
+  训练标签（coords）与 BOP model frame 的 Kabsch 变换 = 恒等（rot ≤0.096°，|t| ≤0.26mm，scale≈1，det=+1）；
+  施加 P3.1-C 旋转使 label→BOP 距离膨胀 10.7×/15.5×。**Case A（frame mismatch）排除，Case B 成立。**
+- 176.5° 现象的定位由此收窄：非数据/约定 bug，而是 CoordNet 在真实输入分布上的 frame 歧义选择。
+
 ## 2026-09-10 — Phase 3 / P3.1-C：固定旋转诊断（Gate 3 失败完全归因）
 
 - 新增 `scripts/p3_1_c_posthoc_rotation.py`：与 Gate 3 逐位同构的管线 + 单一预注册修正

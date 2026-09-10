@@ -35,6 +35,7 @@
 | `scripts/p3_1_a_robust_norm.py` | P3.1-A 单变量消融（max→p95 归一化，Outcome D） | [x] |
 | `scripts/p3_1_b_canonical_analysis.py` | P3.1-B 分层分解（raw/trans/rigid/sim，发现 ~176.5° 系统旋转） | [x] |
 | `scripts/p3_1_c_posthoc_rotation.py` | P3.1-C 判定性诊断（预注册固定旋转 −176.5°，0/10→10/10） | [x] |
+| `scripts/p3_1_d_canonical_frame_audit.py` | P3.1-D canonical frame 约定审计（读取器等价性/Kabsch 恒等/判别器，Case B） | [x] |
 | `scripts/verify_ycbv_data.py` | 数据集下载后完整性验证（GT 存在性/文件配对/往返/GT 叠加） | [x] |
 | `scripts/p2_0_intra_scene_control.py` | P2.0 归因对照实验（同场景参考库，排除评测帧） | [x] |
 | `src/r3p/experiments/run_p2_1.py` | P2.1 统一入口（渲染模板库 → SIFT → PnP，与 P2.0 可比） | [x] |
