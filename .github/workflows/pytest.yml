@@ -1,0 +1,30 @@
+name: pytest
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # Lightweight project deps only (already declared in pyproject/requirements).
+      # torch is an optional extra and is NOT installed on CI: the learning tests
+      # skip themselves via pytest.importorskip. CUDA / FoundationPose runtime is
+      # out of scope for CI by design.
+      - name: Install project (CPU deps)
+        run: python -m pip install -e ".[dev]"
+
+      - name: Run tests
+        run: python -m pytest -q
+
+      # Data-dependent tests (BOP subset, rendered-mesh checks) self-skip when
+      # data/ is absent; their skip count is reported but not treated as failure.

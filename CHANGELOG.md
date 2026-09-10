@@ -2,6 +2,23 @@
 
 > 重要实现变化（不是每个 commit 都记）。格式：日期 + Phase + 变更。
 
+## 2026-09-11 — Phase 4-C：项目整合与秋招展示（文档同步）
+
+- README 全面重写：项目概述/状态表（P0–P2 ✅、P3 关闭、P4 集成完成 runtime 待 3090）/Mermaid
+  管线图/分路线结果表（标注来源与实验条件）/失败分析/数据与评测/可复现性/范围与局限/3 分钟导览。
+- 新增 `docs/PROJECT_OVERVIEW.md`（2 屏 reviewer 入口）与 `docs/assets/`（3 张轻量展示图，389KB，
+  取自既有 outputs 产物：classical 成功 overlay、P3.1-C 修复 overlay、P3.1-F 覆盖直方图）。
+- 项目状态全量同步：PROJECT_SPEC 阶段表（0/1/2 完成、3 关闭、4 进行中）+ 新增 4b 方法路线角色
+  （Classical → Diagnostic → FoundationPose）；MODULE_MAP 修复粘连行/过期行（PnP/ICP/FP 实际实现、
+  测试数 63）；PROJECT_CONTEXT 新增决策 **D10**（关闭自研学习路线 → FoundationPose，证据
+  P3.1-C/D/E/F/G，不预设 FP 更优）。
+- EXPERIMENT_LOG 顶部新增 canonical 实验索引：EXP-000…012 + EXP-013（已注册待 3090）；
+  P3.1-C 追溯编号 **EXP-009**；P3.1-A/B/D 按项目规范登记为无编号诊断文档；EXP-006/007 文件内
+  顺序加注；EXP-013 为 canonical ID，`fp_exp004_feasibility` 为目录别名（配置已统一）。
+- 新增最小 CI：`.github/workflows/pytest.yml`（CPU-only：安装既有轻量依赖 → pytest；
+  torch 为 optional，学习测试自动 skip；CUDA/FP runtime 明确不在 CI 范围）。
+- 无实验代码/结果改动；本地 pytest 63 passed。
+
 ## 2026-09-11 — Phase 4-A/B：FoundationPose Preflight + 本地集成准备
 
 - Preflight（`docs/PHASE4_PREFLIGHT.md`）：官方实现/许可（NVIDIA Source Code License-NC，
