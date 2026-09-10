@@ -442,6 +442,34 @@
   (a) 定位 176.5° 偏移来源的定向实验（候选：纯几何输入消融/外观消融/训练数据 frame 约定复查）；
   (b) 按原纪律关闭自研路线（Classical 保持 baseline，Phase 4 FoundationPose 作为 learning 对照）。
 
+---
+
+## EXP-010 — P3.1-E：Input Sensitivity Diagnostic——偏置由几何通路驱动，外观假设被否定
+
+- **日期**：2026-09-10
+- **Phase**：3（P3.1-E，输入敏感性诊断；**注**：审批消息在 Condition A 后截断，B/C/D 条件为
+  标准敏感性集合预注册，脚本注释已标注，可与原稿比对后廉价重跑）
+- **Question**：~176.5° real-domain orientation bias 由 RGB、XYZ 还是二者逐点关联驱动？
+- **Setup**：frozen checkpoint + Gate 3 全部冻结参数；四条件（full / rgb_mean / xyz_zero / rgb_shuffle）
+  × 10 真实帧 + 10 合成对照（Gate 2 val）；GT 仅评测端。**Input Sensitivity Diagnostic，
+  非模态 ablation**（checkpoint 从未单模态训练）。
+- **Result**（详见 `docs/P3_1_E_INPUT_SENSITIVITY.md`）：
+  - real bottle：full 176.1° / rgb_mean **173.4°** / rgb_shuffle **175.8°** / xyz_zero 165.4°（坍缩 r=2.2mm，证据弱）
+  - real bowl：full 175.6° / rgb_mean 175.2° / rgb_shuffle 176.8° / xyz_zero 82.9°（坍缩）
+  - **合成对照**：full 3.2° / rgb_mean 49.7° / xyz_zero 105.8°（坍缩）/ rgb_shuffle 13.4°
+- **Analysis**：
+  1. 两种破坏逐点外观-几何关联的方式（均值/打乱）均不改变偏置（176.1→173.4/175.8）→
+     **逐点 RGB 内容不是偏置载体**，P3.1-D H-b（标签外观反转）强形式被否定。
+  2. rgb_mean（仅几何有信息、非坍缩）偏置仍 173.4° → **纯几何输入足以触发翻转——几何通路驱动**。
+  3. 合成对照：full 合成 3.2° vs real full 176.1°——翻转确为 real 触发，非消融伪影；
+     且合成 rgb_mean 恶化至 49.7° 说明逐点外观在合成域是承重的——real 下被几何翻转淹没。
+  4. xyz_zero 两域坍缩（1.3–2.4mm），其偏置数不具解释力（H-e 类条件局限，如实记录）。
+- **Conclusion / Decision**：
+  - 失败定位进一步收窄：**几何通路的 real-domain 响应**是 ~176.5° 偏置的载体；
+    RGB 侧 domain randomization 对该失败无效（对后续迭代的重要工程结论）。
+  - 候选机制（H-e1 覆盖模式/H-e2 深度噪声/H-e3 容量）未隔离，需新实验，等待批准。
+  - Gate 3 NO-GO、P2.4 Classical 基线均不变。
+
 ### 非正式记录：bowl 训练产物（无 EXP 编号，待决策）
 
 以下产物存在于仓库中但无对应实验记录：

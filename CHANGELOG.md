@@ -2,6 +2,14 @@
 
 > 重要实现变化（不是每个 commit 都记）。格式：日期 + Phase + 变更。
 
+## 2026-09-10 — Phase 3 / P3.1-E：输入敏感性诊断（几何通路驱动；外观假设否定）
+
+- 新增 `scripts/p3_1_e_input_sensitivity.py` + `docs/P3_1_E_INPUT_SENSITIVITY.md`。
+- 四条件（full/rgb_mean/xyz_zero/rgb_shuffle）× 10 真实帧 × 2 物体 + 10 合成对照，frozen checkpoint 零改动。
+- **结论**：~176.5° 偏置与逐点 RGB 无关（均值/打乱均不改变），纯几何输入（rgb_mean，非坍缩）即触发
+  173.4°；合成对照确认 real 触发（合成 full 仅 3.2°）。外观线索反转假设否定；RGB 侧 DR 对该失败无效。
+- xyz_zero 条件两域坍缩，数值不具解释力（如实记录）。
+
 ## 2026-09-10 — Phase 3 / P3.1-D：Canonical Frame Convention Audit（Case B：frame 同一）
 
 - 新增 `scripts/p3_1_d_canonical_frame_audit.py` + `docs/P3_1_D_CANONICAL_FRAME_AUDIT.md`。
