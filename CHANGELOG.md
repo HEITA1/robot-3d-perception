@@ -2,6 +2,24 @@
 
 > 重要实现变化（不是每个 commit 都记）。格式：日期 + Phase + 变更。
 
+## 2026-09-11 — Phase 4-A/B：FoundationPose Preflight + 本地集成准备
+
+- Preflight（`docs/PHASE4_PREFLIGHT.md`）：官方实现/许可（NVIDIA Source Code License-NC，
+  research-only）/依赖（python 3.11 + torch cu124 + nvdiffrast/pytorch3d 源码编译）审计；
+  本机无 GPU → 执行机为 3090 Ubuntu（driver/CUDA/docker 待审计，命令清单已给出）。
+- **输入协议源码级审计**：model-based `register(K, rgb, depth, ob_mask)` 零初始位姿、零 GT
+  （公开版 `compute_add_err_to_gt_pose` 为桩函数）；mask 直接支持 `mask_visib`；
+  depth `raw×1e-3×depth_scale`、mesh `×1e-3` 与本项目约定完全对齐。
+- 新增 `src/r3p/foundationpose/`：InferenceInput（frozen dataclass，**结构性无 gt_pose 字段**）与
+  EvaluationData 分离；`assert_no_gt_pose` 递归 manifest 守卫（文档键 `gt_pose_usage` 允许）；
+  显式单位转换 + meter-band 断言；adapter（prepare/validate/run 分发）；mock backend
+  （确定性、is_mock 永久标记）；evaluator（复用 compute_all）+ 红绿 overlay wrapper。
+- 新增 `configs/fp_exp013.yaml`（冻结）+ `scripts/run_foundationpose_exp013.py`
+  （环境门控 runner：检查失败拒绝运行、mock 仅写 `*_mock` 目录、foundationpose 后端不回退）
+  + `scripts/foundationpose_env_check.py`（13 组件检查器）。
+- 开发期 bug 自捕：adapter 曾对已是米制的数据集字段二次转换（×1e-4）——单位断言当场抓住并修复。
+- 63 tests（新增 11）全绿；mock 链路在轻薄本端到端跑通（5 帧，产物隔离于 `*_mock`）。
+
 ## 2026-09-10 — Phase 3 / P3.1-G Phase 1：depth noise sanity check（1mm 不被支持 → 停止）
 
 - 新增 `scripts/p3_1_g_noise_sanity.py`：3×3 高通残差 + 平滑门控的深度噪声量级检查（Gate 3 十帧，只读）。
