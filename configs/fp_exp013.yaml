@@ -13,8 +13,8 @@
 # "foundationpose" there; "mock" exists only for local pipeline smoke tests
 # and its outputs are permanently flagged is_mock=true).
 
-experiment_id: fp_exp004_feasibility
-log_id: EXP-013
+experiment_id: EXP-013           # canonical experiment ID (manifest/log/README)
+dir_alias: fp_exp004_feasibility  # output folder name (Phase 4 naming convention)
 method: FoundationPose
 mode: register                    # estimation path; NO initial pose
 backend: foundationpose           # on 3090; "mock" only for local chain smoke

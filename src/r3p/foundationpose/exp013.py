@@ -15,8 +15,8 @@ from dataclasses import dataclass, field
 
 @dataclass(frozen=True)
 class Exp013Config:
-    experiment_id: str = "fp_exp004_feasibility"
-    log_id: str = "EXP-013"
+    experiment_id: str = "EXP-013"        # canonical ID (manifest / log / README)
+    dir_alias: str = "fp_exp004_feasibility"  # output folder name (Phase 4 naming convention)
     method: str = "FoundationPose"
     mode: str = "register"            # estimation path; NO initial pose
     backend: str = "mock"             # laptop default; "foundationpose" only on 3090
@@ -39,7 +39,7 @@ class Exp013Config:
     def to_manifest(self, **extra) -> dict:
         m = {
             "experiment_id": self.experiment_id,
-            "log_id": self.log_id,
+            "dir_alias": self.dir_alias,
             "method": self.method,
             "mode": self.mode,
             "backend": self.backend,
