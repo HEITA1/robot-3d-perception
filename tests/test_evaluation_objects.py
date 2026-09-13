@@ -24,7 +24,8 @@ ALLOWED_ROLES = {
     "geometry_diverse",
     "robustness_oriented",
 }
-ANCHOR_IDS = {5, 13}  # the only objects with frozen experiment results (EXP-006)
+ANCHOR_IDS = {5, 13}  # frozen EXP-006 results (75 frames, historical)
+EXP014_IDS = {2, 6, 10, 14, 15}  # frozen EXP-014 results (W2-3, 10-frame subset)
 
 
 @pytest.fixture(scope="module")
@@ -58,12 +59,15 @@ def test_roles_valid(registry):
 
 
 def test_evaluated_flag_policy(registry):
-    """Registry ≠ results: `evaluated: true` is allowed only for the anchors
-    that actually carry frozen EXP-006 numbers."""
+    """Registry ≠ results: `evaluated: true` is allowed only for objects that
+    carry frozen experiment numbers — EXP-006 (anchors) or EXP-014 (W2-3)."""
     for o in registry["objects"]:
         if o["id"] in ANCHOR_IDS:
             assert o["evaluated"] is True
             assert o["eval_source"] == "EXP-006"
+        elif o["id"] in EXP014_IDS:
+            assert o["evaluated"] is True
+            assert o["eval_source"] == "EXP-014"
         else:
             assert o["evaluated"] is False
             assert "eval_source" not in o

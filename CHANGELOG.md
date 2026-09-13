@@ -2,6 +2,24 @@
 
 > 重要实现变化（不是每个 commit 都记）。格式：日期 + Phase + 变更。
 
+## 2026-09-13 — W2-3 / EXP-014：跨物体统一 baseline 评测（7 物体集）
+
+- **执行**：冻结 P2.4 pipeline（零算法改动）在 5 个新物体上运行（obj2/6/10/14/15 × 10 帧
+  linspace 确定性采样；scene 50 优先，obj6/14 取 scene 48）；anchors obj5/13 不重跑，
+  引 EXP-006 历史逐帧结果。CPU 全程 ~66s。入口：`configs/w2_3_multibaseline.yaml`
+  （icp/selection/success 参数与 p2_4 逐项相同，测试守护）。
+- **结果**（unified table，`scripts/w2_3_unified_table.py` → `outputs/w2_3/unified_table.*`，
+  中位数口径与 EXP-006 metrics.json 逐位一致——anchor 行复现 1.30/2.67 冻结值）：
+  obj15 drill **10/10**（med 1.21mm）、obj2 box **7/10**（roll×3）、obj10 banana **7/10**
+  （点数不足×2 + roll×1）、obj6 tuna **0/10**（全部 insufficient——点数地板：整只 990 点
+  @5mm 体素 < 500 下限，mask 健康）、obj14 mug **0/10 pose**（icp_no_converge×7 低纹理凹面）。
+  **零调参、零筛帧**——包络边界如实入档。
+- 新增 `tests/test_w2_3.py`（4 项）：config 与 p2_4 冻结参数逐项相等（公平性守护）、
+  预注册 metric/场景/帧数、聚合口径单测、anchor 冻结数字逐位复现测试。
+  registry（`evaluation_objects.yaml`）5 物体标记 evaluated（EXP-014）+ 政策测试更新。
+- EXPERIMENT_LOG 登记 **EXP-014**（含编号说明：preflight 曾预留未注册的 "EXP-014" 提案）；
+  README/CHANGELOG/MODULE_MAP 最小同步。无新依赖、无下载、未 push。
+
 ## 2026-09-13 — W2-2：evaluation object set 选定（selection registry）
 
 - 新增 `docs/EVALUATION_OBJECT_SET.md`：21 物体候选池（含本地可用性实测：全部 21 物体

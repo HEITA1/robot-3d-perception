@@ -96,6 +96,31 @@ pipeline verified end-to-end, 3090 runner with environment gating). Runtime exec
 
 ![Geometry distribution audit](docs/assets/geometry_distribution_audit.png)
 
+### Multi-Object Baseline — EXP-014 (W2-3)
+
+The same frozen classical baseline (identical parameters, oracle mask, ADD(-S) < 0.1d)
+run on the 7-object evaluation set. N = actually evaluated frames; anchors are the
+historical EXP-006 full runs, new objects use a 10-frame deterministic even sample
+(scene 50 where possible). Error medians follow the EXP-006 convention (all frames
+that produced a pose, gate failures included).
+
+| Obj | Name | Source | N | Success | med ADD / ADD-S |
+| --- | --- | --- | ---: | ---: | ---: |
+| 5 | mustard_bottle | historical (EXP-006) | 75 | 70/75 = 93.3% | 1.30 / 1.21 mm |
+| 13 | bowl | historical (EXP-006) | 75 | 58/75 = 77.3% | 94.57 / **2.67** mm (ADD-S) |
+| 2 | cracker_box | EXP-014 | 10 | 7/10 | 3.19 / 2.76 mm |
+| 6 | tuna_fish_can | EXP-014 | 10 | **0/10** | – (all `insufficient_observation`) |
+| 10 | banana | EXP-014 | 10 | 7/10 | 3.48 / 1.71 mm |
+| 14 | mug | EXP-014 | 10 | **0/10** | 190.82 / 149.71 mm (7× `icp_no_converge`) |
+| 15 | power_drill | EXP-014 | 10 | 10/10 | 1.21 / 1.17 mm |
+
+Documented baseline envelope: strong on large / rich-geometry / textured objects
+(drill 10/10 at ~1.2 mm), but (a) a frozen point-density floor excludes small flat
+objects (tuna can: whole mesh is 990 points at the 5 mm voxel < 500-point minimum)
+and (b) low-texture concave surfaces defeat ICP convergence (mug 0/10). No parameter
+was tuned — these boundaries motivate the model-based comparison (EXP-013, pending 3090).
+Full record: `EXPERIMENT_LOG.md` EXP-014 · table: `outputs/w2_3/unified_table.md`.
+
 ## Demo Artifacts
 
 Presentation-layer demos composed **read-only** from the frozen EXP-006 (P2.4)
@@ -125,8 +150,8 @@ bottle's near-symmetric axis) — failure analysis on display, not hidden error.
   (`r3p.evaluation.metrics.compute_all`) used by *every* method.
 - **Evaluation object set (W2-2)**: 7 objects selected for geometry / appearance / symmetry
   coverage — anchors obj5 `006_mustard_bottle` (asymmetric → ADD) and obj13 `024_bowl`
-  (rotationally symmetric → ADD-S), both evaluated in EXP-006, plus obj2 / obj6 / obj10 /
-  obj14 / obj15 (**registered for upcoming experiments, not yet evaluated**).
+  (rotationally symmetric → ADD-S), evaluated in EXP-006, plus obj2 / obj6 / obj10 / obj14 /
+  obj15 evaluated in EXP-014 (unified 10-frame subset per object).
   Rationale: `docs/EVALUATION_OBJECT_SET.md` · registry: `configs/evaluation_objects.yaml`.
 - **Controlled condition**: ground-truth `mask_visib` segmentation is used by all methods
   (oracle mask) — this isolates pose estimation from detection and is stated on every
@@ -138,7 +163,7 @@ bottle's near-symmetric axis) — failure analysis on display, not hidden error.
   ordering, single-thread ICP for bit-reproducible runs (decision D9).
 - One-shot evaluation script per experiment; results (JSON/CSV/overlays) under
   `outputs/` (gitignored), summarized in `EXPERIMENT_LOG.md`.
-- 82 tests (`pytest`), including synthetic regression tests, real-data contract tests,
+- 86 tests (`pytest`), including synthetic regression tests, real-data contract tests,
   unit-conversion guards, and a structural GT-anti-leakage guard for the FoundationPose
   input manifest.
 
@@ -156,16 +181,16 @@ src/r3p/
 configs/           frozen per-experiment configs
 docs/              per-experiment reports and audits
 scripts/           dataset verification, diagnosis and FP runner scripts
-tests/             82 tests (regression + real-data contracts)
+tests/             86 tests (regression + real-data contracts)
 ```
 
 ## Current Scope & Limitations
 
 Stated as current controlled scope and planned work — not as defects:
 
-- **2 evaluated objects** (bottle, bowl); a 7-object evaluation set is **selected** for
-  upcoming experiments (`docs/EVALUATION_OBJECT_SET.md`) — broader expansion stays gated on
-  storage/execution budget.
+- **7-object evaluation set** (`docs/EVALUATION_OBJECT_SET.md`): anchors evaluated at full
+  75-frame coverage (EXP-006), the five coverage complements at the unified 10-frame subset
+  (EXP-014) — N is labeled per result; broader expansion stays gated on budget.
 - **Oracle mask** for all pose methods: detection/segmentation is intentionally excluded
   to isolate the pose variable.
 - **Controlled experiments** dominate so far: robustness perturbation studies

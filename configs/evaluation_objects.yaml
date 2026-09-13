@@ -1,7 +1,7 @@
-# W2-2 evaluation object set — selection registry (NOT an experiment record).
-# `evaluated: true` marks objects with real frozen experiment results only
-# (EXP-005/006, classical baseline); every other entry is registered for
-# upcoming experiments and carries no results. Rationale, candidate pool and
+# W2-2 evaluation object set — selection registry. `evaluated: true` marks
+# objects with real frozen experiment results only: EXP-006 (classical
+# baseline, 75 frames) for the anchors, EXP-014 (W2-3 unified 10-frame
+# subset) for the five coverage complements. Rationale, candidate pool and
 # rejected candidates: docs/EVALUATION_OBJECT_SET.md
 # diameters from data/ycbv/models/models_info.json (max point-pair distance, m->mm).
 
@@ -29,33 +29,38 @@ objects:
     name: 003_cracker_box
     role: texture_diverse
     diameter_mm: 269.573
-    evaluated: false
+    evaluated: true
+    eval_source: EXP-014
     scenes: [50, 54, 59]
 
   - id: 6
     name: 007_tuna_fish_can
     role: symmetry_challenging
     diameter_mm: 89.797
-    evaluated: false
+    evaluated: true
+    eval_source: EXP-014
     scenes: [48, 49, 52, 59]
 
   - id: 10
     name: 011_banana
     role: geometry_diverse
     diameter_mm: 197.796
-    evaluated: false
+    evaluated: true
+    eval_source: EXP-014
     scenes: [50, 56]
 
   - id: 14
     name: 025_mug
     role: symmetry_challenging
     diameter_mm: 124.99
-    evaluated: false
+    evaluated: true
+    eval_source: EXP-014
     scenes: [48, 55]
 
   - id: 15
     name: 035_power_drill
     role: robustness_oriented
     diameter_mm: 226.17
-    evaluated: false
+    evaluated: true
+    eval_source: EXP-014
     scenes: [50, 54, 56, 59]

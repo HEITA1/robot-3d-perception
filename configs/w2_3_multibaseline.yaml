@@ -1,0 +1,69 @@
+# W2-3 / EXP-014: unified cross-object baseline evaluation (7-object set).
+# IDENTICAL frozen algorithm parameters to P2.3-S / P2.4 (EXP-005/006) — same
+# mask -> cloud -> PCA/OBB 24-hyp -> point-to-plane ICP -> fitness selection,
+# same metrics (r3p.evaluation.metrics.compute_all), same oracle mask_visib
+# controlled condition, same success rule ADD(-S) < 0.1d. Only the object
+# list, frame count (10 deterministic even samples per NEW object) and run
+# name change. Anchors obj5/obj13 are NOT re-run here: their historical
+# EXP-006 results (75 frames each) are referenced as `source = historical`.
+#
+# Pre-registered metric choice (BEFORE running, per project rule "symmetric
+# objects are judged by ADD-S"; models_info.json carries no symmetry
+# annotations, so the anchors' established classification is extended by the
+# same geometric criterion):
+#   obj2  cracker_box  asymmetric            -> add
+#   obj6  tuna_fish_can short cylinder = rotationally symmetric (like bowl) -> adds
+#   obj10 banana        asymmetric            -> add
+#   obj14 mug           handle breaks symmetry -> add
+#   obj15 power_drill   asymmetric            -> add
+#
+# Scene choice: scene 50 wherever possible (same-scene cross-object group:
+# obj2/obj10/obj15 alongside anchor obj5); obj6/obj14 are not present in
+# scene 50 -> first available scene 48 (they co-occur there).
+
+data:
+  root: data/ycbv
+
+objects:
+  - obj_id: 2
+    eval_scene: 50
+    n_frames: 10           # W2-3: minimal unified subset, deterministic sampling
+    success_metric: add        # cracker box: asymmetric -> ADD
+    mesh: models/obj_000002.ply
+  - obj_id: 6
+    eval_scene: 48
+    n_frames: 10
+    success_metric: adds       # tuna can: rotationally symmetric -> ADD-S
+    mesh: models/obj_000006.ply
+  - obj_id: 10
+    eval_scene: 50
+    n_frames: 10
+    success_metric: add        # banana: asymmetric -> ADD
+    mesh: models/obj_000010.ply
+  - obj_id: 14
+    eval_scene: 48
+    n_frames: 10
+    success_metric: add        # mug: handle breaks rotational symmetry -> ADD
+    mesh: models/obj_000014.ply
+  - obj_id: 15
+    eval_scene: 50
+    n_frames: 10
+    success_metric: add        # power drill: asymmetric -> ADD
+    mesh: models/obj_000015.ply
+
+icp:
+  voxel_m: 0.005
+  corr_schedule_m: [0.03, 0.01, 0.003]   # frozen schedule (identical to P2.3-S/P2.4)
+  max_iter_per_stage: 60
+  min_cloud_pts: 500
+
+selection:                    # solver gates (identical to P2.3-S/P2.4)
+  min_fitness: 0.5
+  max_rmse_m: 0.004
+
+success:
+  add_diameter_frac: 0.1      # ADD(-S) < 0.1d, per-object official diameter
+
+output:
+  root: outputs
+  name: w2_3

@@ -26,6 +26,11 @@
 | EXP-011 | P3.1-F 几何分布审计（两 regime） | 本文件 |
 | EXP-012 | P3.1-G depth noise sanity（1mm 不支持，训练前停止） | 本文件 |
 | EXP-013 | FoundationPose feasibility（obj5×5 帧） | **已注册，runtime 待 3090**；目录别名 `fp_exp004_feasibility`（Phase 4 命名惯例，见 `configs/fp_exp013.yaml`） |
+| EXP-014 | W2-3 跨物体统一 baseline（7 物体集，5 新物体 ×10 帧） | 本文件 + `outputs/w2_3/`；registry `configs/evaluation_objects.yaml` |
+
+**编号说明**：`docs/PHASE4_PREFLIGHT.md` §7 曾把 "EXP-014" **预留**给未执行的 FoundationPose
+扩帧提案（仅设计、从未注册/运行）；按编号规则（授予实际产出数值结果的实验），EXP-014 归属
+W2-3 跨物体统一 baseline。该 FP 提案若将来执行，将顺延使用下一个可用编号。
 
 **无 EXP 编号的诊断文档**（只读审计/分析既有产物，按上述规则不编号）：
 P3.1-A → `docs/P3_1_A_ROBUST_NORMALIZATION.md`（单变量消融，Outcome D）；
@@ -603,3 +608,69 @@ Gate 3 逐层定位 → `docs/P3_0_GATE3_DEBUG.md`（D1–D6）。
 
 
 
+
+---
+
+## EXP-014 — W2-3 跨物体统一 baseline（7 物体评测集）
+
+- **日期**：2026-09-13
+- **Phase**：W2-3（Phase 2 baseline 的跨物体统一评测，非新方法）
+- **Question**：冻结的 P2.4 classical baseline（EXP-005/006 全套冻结参数）在 W2-2 选定的
+  7 物体评测集上，以统一协议最小子集运行时表现如何？它的有效包络（envelope）边界在哪里？
+- **Hypothesis**：
+  1. 同一冻结 pipeline 无需任何算法/参数改动即可在全部 7 物体上运行并产出可比较结果；
+  2. 强纹理/复杂几何物体预期表现好，纯对称/低纹理物体按 EXP-006 已知失败模式
+     （roll 歧义、遮挡不收敛）退化；
+  3. 若某物体系统性失败，归因为 baseline 包络而非数据/评测错误（预注册归因规则，
+     禁止为提升分数调参）。
+- **Setup**：
+  - **Baseline**：`r3p.experiments.run_p2_3` 全链复用（零算法改动，配置
+    `configs/w2_3_multibaseline.yaml` 与 `configs/p2_4.yaml` 的 icp/selection/success
+    参数逐项相同，有测试守护）；oracle `mask_visib`（声明性受控条件）；
+  - **物体与 metric（跑前预注册）**：obj2 cracker_box→ADD、obj6 tuna_fish_can→ADD-S
+    （扁圆柱=旋转对称，与 bowl 同判据）、obj10 banana→ADD、obj14 mug→ADD（手柄打破
+    对称）、obj15 power_drill→ADD；阈值 ADD(-S)<0.1×官方 diameter；
+  - **帧采样**：每新物体 10 帧，`select_eval_frames` linspace 确定性均匀采样。
+    scene 50：obj2/obj10/obj15（采样帧 620,653,721,1044,1113,1209,1324,1658,1718,1874，
+    其中 5 帧与 anchors/EXP-013 冻结帧同帧）；scene 48：obj6/obj14（obj6/14 不在
+    scene 50 出现，取其首个可用场景，两物体同场景可互照）；
+  - **Anchors 处理**：obj5/obj13 **不重跑**，引用 EXP-006 历史逐帧结果
+    （source=historical，75 帧），与新评测（source=EXP-014，10 帧）在统一表中分列标注；
+  - **入口**：`python -m r3p.experiments.run_p2_3 --config configs/w2_3_multibaseline.yaml`；
+    汇总 `scripts/w2_3_unified_table.py`（中位数口径=EXP-006 metrics.json 约定：
+    所有产出指标值的帧，anchor 行逐位复现 1.30/2.67 冻结值）。
+- **Run**：`outputs/w2_3/20260913-094927/`（CPU，~66s 全部；逐帧 overlay + per_frame CSV + manifest）
+- **Result**（Unified Object Baseline Table，完整口径见 `outputs/w2_3/unified_table.md`）：
+
+| Obj | Name | Source | N | Success | med ADD | med ADD-S | 失败 |
+| --- | --- | --- | ---: | ---: | ---: | ---: | --- |
+| 5 | mustard_bottle | historical (EXP-006) | 75 | 70/75=93.3% | 1.30mm | 1.21mm | roll×5 |
+| 13 | bowl | historical (EXP-006) | 75 | 58/75=77.3% | 94.57mm | **2.67mm** | no_converge×16, sel×1 |
+| 2 | cracker_box | EXP-014 | 10 | **7/10** | 3.19mm | 2.76mm | roll×3 |
+| 6 | tuna_fish_can | EXP-014 | 10 | **0/10** | – | – | insufficient×10 |
+| 10 | banana | EXP-014 | 10 | **7/10** | 3.48mm | 1.71mm | insufficient×2, roll×1 |
+| 14 | mug | EXP-014 | 10 | **0/10** | 190.82mm | 149.71mm | no_converge×7, roll×2, insufficient×1 |
+| 15 | power_drill | EXP-014 | 10 | **10/10** | 1.21mm | 1.17mm | 无 |
+
+  （med = 该物体成功判据列的中位数；bowl 行 med ADD 高是旋转对称的必然，判据为 ADD-S。）
+- **Analysis**：
+  1. **包络上界**：大尺寸/强纹理/复杂几何物体上冻结基线依然强——drill 10/10（med 1.21mm）、
+     box 7/10、banana 7/10（成功帧 ~1.7–3.5mm）；obj15 证明「mask 给定 + 几何丰富」时
+     PCA/OBB+ICP 接近完美；
+  2. **失败模式 A——点数地板（obj6 全灭）**：10/10 帧 `insufficient_observation`。探针实测：
+     mask 健康（5–8k px），但 tuna_can 整只网格在 5mm 体素下仅 **990 点**（可见子集必然
+     < 冻结 `min_cloud_pts=500`）。归因：**冻结参数的尺度下限**（d≈90mm 扁物体），
+     非 adapter/评测 bug；按纪律**不调参**；
+  3. **失败模式 B——低纹理凹面不收敛（obj14 全灭）**：7/10 帧 ICP 未过 solver 门
+     （fitness/rmse），2 帧 roll 翻转（rot med 179.6°）；低纹理 + 凹面杯体是纯几何 ICP 的
+     已知弱点，与 EXP-006 bowl 遮挡不收敛同族但更严重；
+  4. **失败模式 C——近对称翻面（obj2×3、obj10×1）**：与 bottle roll 歧义同族
+     （ADD-S 好、ADD 差），cracker box 俯视近方对称所致；
+  5. 无 runtime_error、无数据适配错误；失败帧全部保留在 CSV 中（未删除任何帧）。
+- **Decision**：
+  1. 结果冻结入档（EXP-014）；`configs/evaluation_objects.yaml` registry 将 5 新物体标记
+     evaluated（source EXP-014），anchors 保持 EXP-006；
+  2. **不调参**：min_cloud_pts/voxel/ICP 调度均不动——任何放宽都是协议变体，需单独提案
+     并与本 baseline 分列，不得混入 EXP-014 口径；
+  3. obj6/obj14 的包络边界直接支撑 FoundationPose 强基线对照（EXP-013，待 3090）的必要性；
+  4. 10 帧 ≠ 75 帧：跨物体比较仅在同一 N 口径内进行，README 引用时强制标注 N 与 source。
