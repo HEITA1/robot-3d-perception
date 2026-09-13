@@ -174,7 +174,7 @@ bottle's near-symmetric axis) — failure analysis on display, not hidden error.
   ordering, single-thread ICP for bit-reproducible runs (decision D9).
 - One-shot evaluation script per experiment; results (JSON/CSV/overlays) under
   `outputs/` (gitignored), summarized in `EXPERIMENT_LOG.md`.
-- 91 tests (`pytest`), including synthetic regression tests, real-data contract tests,
+- 103 tests (`pytest`), including synthetic regression tests, real-data contract tests,
   unit-conversion guards, and a structural GT-anti-leakage guard for the FoundationPose
   input manifest.
 
@@ -192,7 +192,7 @@ src/r3p/
 configs/           frozen per-experiment configs
 docs/              per-experiment reports and audits
 scripts/           dataset verification, diagnosis and FP runner scripts
-tests/             91 tests (regression + real-data contracts)
+tests/             103 tests (regression + real-data contracts)
 ```
 
 ## Current Scope & Limitations
