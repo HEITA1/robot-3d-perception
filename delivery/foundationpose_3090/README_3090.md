@@ -1,8 +1,10 @@
 # README_3090 — FoundationPose 3090 Execution Bundle (Stage A)
 
-> 目标机器：RTX 3090 Ubuntu（本项目从未使用过）。本 Bundle 在轻薄本上准备（Stage A-LOCAL），
+> 目标机器：RTX 3090 Ubuntu（**共用机**，另有他人使用）。本 Bundle 在轻薄本上准备（Stage A-LOCAL），
 > 由用户手动拷贝到 3090。**本机（轻薄本）无 NVIDIA GPU：任何 GPU/CUDA/FP runtime 步骤
 > 都只能在这台 3090 上发生**——标 `PENDING_3090` 的字段在 3090 执行时才获得真值。
+> **隔离方案：Docker（默认）**——共用机避免依赖冲突，全部依赖固化在镜像内，宿主机零 Python 安装；
+> conda 原生路线保留为 fallback（`USE_DOCKER=0`），详见 `DOCKER.md`。
 
 ## 0. 这是什么
 
@@ -23,26 +25,44 @@
    放到仓库同结构路径 `data/ycbv/...` 下。
 3. 本 Bundle 已在仓库内 `delivery/foundationpose_3090/`，随仓库一起到位即可。
 
-## 2. 执行顺序（每步都在 3090 上）
+## 2. 执行顺序（每步都在 3090 上；Docker 隔离为主路径）
 
 ```text
  1. cd /home/<user>/robot-3d-perception
  2. 把 BOP 最小数据放到 data/ycbv/...            （DATA_MANIFEST.md）
  3. git clone https://github.com/NVlabs/FoundationPose.git   # 官方仓库
  4. 记录 commit：git -C FoundationPose rev-parse HEAD        # 写入 fp_commit.txt
- 5. bash delivery/foundationpose_3090/CHECK_ENV.sh            # 预期：GPU/编译器 PASS，conda env 部分 FAIL（未装）
- 6. bash delivery/foundationpose_3090/INSTALL.sh              # 建 r3p-fp env + 依赖 + 编译（safe-fail）
+ 5. bash delivery/foundationpose_3090/DOCKER_SETUP.sh         # 拉官方基础镜像 + 构建派生镜像 + 容器内验证
+ 6. bash delivery/foundationpose_3090/CHECK_ENV.sh            # 自动进容器；预期全 PASS
  7. 下载官方 checkpoints（DOWNLOAD_WEIGHTS.md；仅官方 Google Drive）
- 8. bash delivery/foundationpose_3090/CHECK_ENV.sh            # 预期：全部 PASS
- 9. bash delivery/foundationpose_3090/PREPARE_DATA.sh         # 数据完整性 + 单位守卫（CPU 可跑）
-10. conda activate r3p-fp
-    bash delivery/foundationpose_3090/RUN_SMOKE_TEST.sh       # 单帧 620 runtime gate
+ 8. bash delivery/foundationpose_3090/CHECK_ENV.sh            # 复查（含 checkpoint 项）
+ 9. bash delivery/foundationpose_3090/PREPARE_DATA.sh         # 数据完整性 + 单位守卫（自动进容器，CPU）
+10. bash delivery/foundationpose_3090/RUN_SMOKE_TEST.sh       # 单帧 620 runtime gate（自动进容器，GPU）
 11. 检查 outputs/phase4_foundationpose/smoke_test/（manifest + overlay 人工目检）
 12. 仅在用户明确授权后（Stage B）：
     CONFIRM_EXP013=YES bash delivery/foundationpose_3090/RUN_EXP013.sh --unlock
-13. bash delivery/foundationpose_3090/COLLECT_RESULTS.sh      # 汇集 delivery_back/
+13. bash delivery/foundationpose_3090/COLLECT_RESULTS.sh      # 汇集 delivery_back/（宿主机执行即可）
 14. 把 delivery_back/ 拷回轻薄本（结果回传清单见 §4）
 ```
+
+> fallback：若 Docker 路线不可用（无 docker 权限等），`USE_DOCKER=0 bash .../INSTALL.sh`
+> 走 conda 原生路线（L1），其余步骤同名脚本照跑——两套脚本同一协议。
+
+## 2b. 磁盘占用预估（3090）
+
+| 项 | 预估 | 说明 |
+| --- | --- | --- |
+| 官方基础镜像 `wenbowen123/foundationpose` | **10–20 GB** | ⏳ 实际以拉取输出为准（Preflight 估算） |
+| 派生镜像 `r3p-fp:exp013`（增量层） | 0.5–1 GB | 项目 + scipy/opencv/matplotlib/open3d 等轻量层 |
+| checkpoints（refiner + scorer） | **1–2 GB** | ⏳ 下载时实测 |
+| BOP 最小数据 | ~8 MB | DATA_MANIFEST 清单 |
+| 仓库 + Bundle（不含数据/输出） | ~10 MB | |
+| 运行输出（smoke + EXP-013 + delivery_back） | < 200 MB | manifest/overlay/日志 |
+| docker 构建缓存（临时，可 `docker builder prune`） | 0–2 GB | |
+| **合计** | **≈ 12–23 GB（典型 ~15–20 GB）** | **建议预留 25 GB**；`df -h` 确认 |
+
+共享机礼仪：全部占用集中在 docker 镜像与 `<repo>/outputs/`，可整体删除回收
+（`docker rmi r3p-fp:exp013` + 基础镜像视共用约定）；不写机器全局目录。
 
 ## 3. Gates
 
@@ -62,8 +82,9 @@ overlays、env_manifest、FP commit 记录、SHA256SUMS、日志。
 
 ## 5. PENDING_3090（本 Bundle 无法在轻薄本获得的真值）
 
-- GPU 型号 / driver 版本 / CUDA toolkit / nvcc / gcc 兼容性
-- conda env `r3p-fp` 的实际安装结果与版本组合
+- GPU 型号 / driver 版本 / docker + nvidia-container-toolkit 可用性
+- 官方基础镜像实际体积与 tag（DOCKER_SETUP 拉取时输出）
+- conda 原生路线（fallback）的 nvcc / gcc 兼容性
 - checkpoints 的实际文件名/大小/sha256（官方 Google Drive 未发布 checksum；
   下载后在本机计算 sha256 记录进 manifest）
 - 官方 FoundationPose checkout 的确切 commit（克隆后立即记录）

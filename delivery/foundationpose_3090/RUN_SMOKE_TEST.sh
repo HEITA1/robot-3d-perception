@@ -6,8 +6,19 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-FP_REPO_ROOT="${FP_REPO_ROOT:-$HOME/FoundationPose}"
-FP_CHECKPOINT_DIR="${FP_CHECKPOINT_DIR:-$FP_REPO_ROOT/weights}"
+# Docker 隔离（默认）：re-exec 进容器（GPU/--gpus；FP 与权重经 /fp 挂载）
+if [ "${USE_DOCKER:-1}" = "1" ] && [ "${INSIDE_CONTAINER:-0}" != "1" ]; then
+  IMAGE="${R3P_FP_IMAGE:-r3p-fp:exp013}"
+  HOST_FP_ROOT="${FP_REPO_ROOT:-$HOME/FoundationPose}"
+  HOST_CKPT="${FP_CHECKPOINT_DIR:-$HOST_FP_ROOT/weights}"
+  exec docker run --rm --gpus all -e INSIDE_CONTAINER=1 \
+    -v "$REPO_ROOT":/work -w /work \
+    -v "$HOST_FP_ROOT":/fp/FoundationPose -v "$HOST_CKPT":/fp/weights \
+    -e FP_REPO_ROOT=/fp/FoundationPose -e FP_CHECKPOINT_DIR=/fp/weights \
+    "$IMAGE" bash "delivery/foundationpose_3090/$(basename "${BASH_SOURCE[0]}")"
+fi
+FP_REPO_ROOT="${FP_REPO_ROOT:-/fp/FoundationPose}"
+FP_CHECKPOINT_DIR="${FP_CHECKPOINT_DIR:-/fp/weights}"
 export FP_REPO_ROOT FP_CHECKPOINT_DIR
 PYTHON="${R3P_FP_PYTHON:-python}"
 

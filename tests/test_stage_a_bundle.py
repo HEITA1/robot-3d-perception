@@ -20,10 +20,10 @@ import pytest
 BASH_AVAILABLE = shutil.which("bash") is not None
 
 BUNDLE = Path("delivery/foundationpose_3090")
-SCRIPTS = ("CHECK_ENV.sh", "INSTALL.sh", "PREPARE_DATA.sh",
-           "RUN_SMOKE_TEST.sh", "RUN_EXP013.sh", "COLLECT_RESULTS.sh")
-DOCS = ("README_3090.md", "MANIFEST.md", "ENVIRONMENT.md",
-        "DATA_MANIFEST.md", "DOWNLOAD_WEIGHTS.md")
+SCRIPTS = ("CHECK_ENV.sh", "INSTALL.sh", "PREPARE_DATA.sh", "RUN_SMOKE_TEST.sh",
+           "RUN_EXP013.sh", "COLLECT_RESULTS.sh", "DOCKER_SETUP.sh")
+DOCS = ("README_3090.md", "MANIFEST.md", "ENVIRONMENT.md", "DATA_MANIFEST.md",
+        "DOWNLOAD_WEIGHTS.md", "DOCKER.md", "Dockerfile.r3p-fp")
 
 
 def test_bundle_completeness():
@@ -44,6 +44,18 @@ def test_locked_execution_script_states_lock():
     text = (BUNDLE / "RUN_EXP013.sh").read_text(encoding="utf-8")
     assert "EXECUTION_LOCKED=true" in text
     assert "CONFIRM_EXP013=YES" in text
+
+
+def test_docker_isolation_is_default_path():
+    """Shared 3090: every GPU-side script must default to docker re-exec
+    (USE_DOCKER=1) with the official base image wired in the Dockerfile."""
+    for name in ("CHECK_ENV.sh", "PREPARE_DATA.sh", "RUN_SMOKE_TEST.sh", "RUN_EXP013.sh"):
+        text = (BUNDLE / name).read_text(encoding="utf-8")
+        assert 'USE_DOCKER:-1' in text, f"{name} missing docker-default preamble"
+        assert "INSIDE_CONTAINER" in text
+    dockerfile = (BUNDLE / "Dockerfile.r3p-fp").read_text(encoding="utf-8")
+    assert "FROM wenbowen123/foundationpose:" in dockerfile
+    assert "--no-deps" in dockerfile  # never touch the base image's torch/CUDA tree
 
 
 @pytest.mark.skipif(not BASH_AVAILABLE, reason="bash not available")

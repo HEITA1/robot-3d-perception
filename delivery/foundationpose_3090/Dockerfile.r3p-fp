@@ -1,0 +1,24 @@
+# 派生镜像：官方 FoundationPose 镜像 + r3p 项目（构建于 3090，见 DOCKER_SETUP.sh）
+# 基础镜像已含 CUDA/torch/编译链/FP 依赖；这里只叠加本项目与少量轻量依赖。
+# 红线：不升降级 torch/CUDA/numpy 等核心版本（--no-deps + 手工轻量依赖清单）。
+FROM wenbowen123/foundationpose:latest
+
+WORKDIR /work
+
+# 构建上下文 = 仓库根（DOCKER_SETUP.sh 先写白名单式 .dockerignore，
+# 排除 data/outputs/data_synth/.git，上下文保持在 MB 级）
+COPY pyproject.toml README.md ./
+COPY src ./src
+
+# 项目本体（--no-deps：绝不触碰基础镜像的 torch/CUDA 依赖树）
+RUN pip install --no-deps -e . \
+ && pip install --no-deps scipy opencv-python-headless matplotlib pyyaml \
+ && python -c "import r3p; import r3p.datasets.ycbv_bop; import r3p.foundationpose.evaluator; print('r3p-in-docker OK')"
+
+# open3d 仅 mesh 加载需要（~100MB，独立层，可缓存）
+RUN pip install --no-deps open3d \
+ && python -c "import open3d; print('open3d ok')"
+
+# 容器默认工作目录 = 挂载的仓库根；运行时挂载：
+#   <repo> → /work, ~/FoundationPose → /fp/FoundationPose, weights → /fp/weights
+CMD ["bash"]

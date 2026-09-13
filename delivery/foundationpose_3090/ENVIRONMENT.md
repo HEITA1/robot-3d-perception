@@ -22,8 +22,12 @@
 
 ## Isolation
 
-- conda env：**`r3p-fp`**（新建；项目自身以 `pip install -e ".[dev]"` 装入该 env）。
-- 不修改、不复用任何既有 conda 环境（轻薄本的 `r3p` 环境与此无关）。
+- **首选：Docker 隔离（共用机方案）**——官方基础镜像 `wenbowen123/foundationpose` +
+  派生镜像 `r3p-fp:exp013`（见 `DOCKER.md` / `DOCKER_SETUP.sh` / `Dockerfile.r3p-fp`）；
+  宿主机零 Python 安装，依赖固化在镜像层，与机器其他用户完全隔离。
+- fallback：conda env **`r3p-fp`**（新建；项目以 `pip install -e ".[dev]"` 装入）——
+  仅在 docker 不可用时使用；不动任何既有环境。
+- 磁盘预估合计 ≈12–23GB（典型 ~15–20GB），明细见 `README_3090.md` §2b。
 
 ## Version pinning policy
 
