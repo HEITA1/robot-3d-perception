@@ -2,6 +2,21 @@
 
 > 重要实现变化（不是每个 commit 都记）。格式：日期 + Phase + 变更。
 
+## 2026-09-13 — W2-2：evaluation object set 选定（selection registry）
+
+- 新增 `docs/EVALUATION_OBJECT_SET.md`：21 物体候选池（含本地可用性实测：全部 21 物体
+  在本地 12 场景有真实帧，零下载）、8 维 rubric 打分（仅参考，人工裁定）、**最终 7 物体集**
+  （obj5/obj13 anchors + obj2 cracker_box 纹理端 / obj6 tuna_can 对称极值端 /
+  obj10 banana 非对称细长端 / obj14 mug 特征打破对称桥 / obj15 power_drill 复杂几何端）、
+  覆盖矩阵、逐物 rationale、10 个 rejected candidates 及理由、Phase 5 变量轴
+  （对称谱系/纹理谱系/几何谱系/尺度 2.9×/遮挡先验）。
+- 新增 `configs/evaluation_objects.yaml`（selection registry）：`evaluated: true` 仅标记
+  持有冻结 EXP-006 结果的 anchors，其余 5 物体明确 registered-not-evaluated。
+- 新增 `tests/test_evaluation_objects.py`（9 项）：registry 结构（5–8 个/无重复/角色合法/
+  evaluated-flag 政策）+ 本地 metadata 交叉校验（名称=dataset_info、diameter=models_info
+  ±0.01mm、注册场景确实含该物体）。
+- README Objects/limitations/测试数最小同步；无实验、无下载、无 push。
+
 ## 2026-09-13 — W2-1：demo artifact pipeline（presentation layer）
 
 - 新增 `src/r3p/visualization/demo.py` + `scripts/build_demo.py`：从冻结的 EXP-006 (P2.4)

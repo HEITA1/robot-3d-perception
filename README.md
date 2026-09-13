@@ -123,8 +123,11 @@ bottle's near-symmetric axis) — failure analysis on display, not hidden error.
   models) — local, validated, read-only. Details: `docs/phase1_data_validation_report.md`.
 - **Metrics**: ADD / ADD-S / translation / rotation error via one shared implementation
   (`r3p.evaluation.metrics.compute_all`) used by *every* method.
-- **Objects**: obj5 `006_mustard_bottle` (asymmetric → ADD) and obj13 `024_bowl`
-  (rotationally symmetric → ADD-S).
+- **Evaluation object set (W2-2)**: 7 objects selected for geometry / appearance / symmetry
+  coverage — anchors obj5 `006_mustard_bottle` (asymmetric → ADD) and obj13 `024_bowl`
+  (rotationally symmetric → ADD-S), both evaluated in EXP-006, plus obj2 / obj6 / obj10 /
+  obj14 / obj15 (**registered for upcoming experiments, not yet evaluated**).
+  Rationale: `docs/EVALUATION_OBJECT_SET.md` · registry: `configs/evaluation_objects.yaml`.
 - **Controlled condition**: ground-truth `mask_visib` segmentation is used by all methods
   (oracle mask) — this isolates pose estimation from detection and is stated on every
   experiment record.
@@ -135,7 +138,7 @@ bottle's near-symmetric axis) — failure analysis on display, not hidden error.
   ordering, single-thread ICP for bit-reproducible runs (decision D9).
 - One-shot evaluation script per experiment; results (JSON/CSV/overlays) under
   `outputs/` (gitignored), summarized in `EXPERIMENT_LOG.md`.
-- 63 tests (`pytest`), including synthetic regression tests, real-data contract tests,
+- 82 tests (`pytest`), including synthetic regression tests, real-data contract tests,
   unit-conversion guards, and a structural GT-anti-leakage guard for the FoundationPose
   input manifest.
 
@@ -153,15 +156,16 @@ src/r3p/
 configs/           frozen per-experiment configs
 docs/              per-experiment reports and audits
 scripts/           dataset verification, diagnosis and FP runner scripts
-tests/             63 tests (regression + real-data contracts)
+tests/             82 tests (regression + real-data contracts)
 ```
 
 ## Current Scope & Limitations
 
 Stated as current controlled scope and planned work — not as defects:
 
-- **2 objects** (bottle, bowl) on the BOP YCB-V minimal subset; broader objects/scenes are
-  a planned extension, gated on storage/execution budget.
+- **2 evaluated objects** (bottle, bowl); a 7-object evaluation set is **selected** for
+  upcoming experiments (`docs/EVALUATION_OBJECT_SET.md`) — broader expansion stays gated on
+  storage/execution budget.
 - **Oracle mask** for all pose methods: detection/segmentation is intentionally excluded
   to isolate the pose variable.
 - **Controlled experiments** dominate so far: robustness perturbation studies
