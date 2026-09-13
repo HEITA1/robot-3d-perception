@@ -21,6 +21,8 @@
 | `src/r3p/pose/geo_init.py` | P2.3 几何基线：mask→点云（确定性排序）→PCA→24 假设→point-to-plane ICP（推理零 GT pose）；`estimate_pose` = Phase 3 可替换推理接口 | [x] |
 | `src/r3p/pose/render_templates.py` | P2.1 渲染模板：ASCII PLY(UV/法线) 解析 + RaycastingScene CPU 渲染 + Fibonacci 视角 + Lambert 材质 | [x] |
 | `src/r3p/visualization/viz.py` | matplotlib 静态 PNG（headless 安全）+ Open3D 交互（可选） | [x] |
+| `src/r3p/visualization/demo.py` | W2-1 demo 工件流水线：read-only 合成 P2.3/P2.4 stored overlay/CSV → 标注静态图 / MP4 序列 / filmstrip；pose 渲染复用 `draw_quad_overlay`（零 convention 重定义）+ GT convention 检查 | [x] |
+| `scripts/build_demo.py` | demo 工件 CLI（--experiment/--scene/--object/--start-frame/--end-frame/--output/--mode；累积 manifest；构建前强制 GT 检查） | [x] |
 | `src/r3p/experiments/run_smoke.py` | Phase 0 统一入口 smoke 实验 | [x] |
 | `src/r3p/experiments/run_ycbv_demo.py` | Phase 1 真实数据 demo：RGB-D→点云→GT 投影→PNG | [x] |
 | `src/r3p/experiments/run_p2_0.py` | P2.0 spike 统一入口（10 帧 SIFT+PnP，per-frame CSV + overlay + metrics.json） | [x] |

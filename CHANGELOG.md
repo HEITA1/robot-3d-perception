@@ -2,6 +2,22 @@
 
 > 重要实现变化（不是每个 commit 都记）。格式：日期 + Phase + 变更。
 
+## 2026-09-13 — W2-1：demo artifact pipeline（presentation layer）
+
+- 新增 `src/r3p/visualization/demo.py` + `scripts/build_demo.py`：从冻结的 EXP-006 (P2.4)
+  逐帧产物（stored overlay PNG + per-frame CSV）合成标注静态 demo（成功/失败）、连续序列
+  MP4（cv2 mp4v，零新依赖）与 filmstrip 预览。**Read-only 消费**：不重算/不插值 pose、
+  不修改任何实验产物；序列视频直接由实验运行时自己渲染的 overlay PNG 组装
+  （run 未存 pose 矩阵，stored overlay 即真实预测的权威渲染）。
+- Pose 渲染复用 `run_p2_3.draw_quad_overlay`（GT 绿 / PCA init 蓝 / ICP pred 红），
+  零 convention 重定义；每次构建强制 GT convention 检查（GT 投影须落在 mask_visib，
+  实测 0.92–0.95）并记录 `outputs/demo/demo_manifest.json`（累积式，含逐帧来源）。
+- 新增 10 项测试（overlay 委托/convention、标注/filmstrip/MP4 plumbing、mock run 读取
+  + read-only 校验、真实数据 GT convention、真实 P2.4 产物契约——75 行 CSV、70 成功帧
+  全有 overlay、620–769 窗 23 帧全 success）。
+- docs/assets 新增 3 张轻量 demo 图（success/failure 静态 + 序列预览，约 500KB JPEG）。
+- 无实验代码/结果改动；无新依赖；本地 pytest 全绿；不 push。
+
 ## 2026-09-11 — Phase 4-C：项目整合与秋招展示（文档同步）
 
 - README 全面重写：项目概述/状态表（P0–P2 ✅、P3 关闭、P4 集成完成 runtime 待 3090）/Mermaid

@@ -96,6 +96,27 @@ pipeline verified end-to-end, 3090 runner with environment gating). Runtime exec
 
 ![Geometry distribution audit](docs/assets/geometry_distribution_audit.png)
 
+## Demo Artifacts
+
+Presentation-layer demos composed **read-only** from the frozen EXP-006 (P2.4)
+per-frame outputs — no poses recomputed, no metrics touched
+(`python scripts/build_demo.py --experiment p2_4 --object 5 ...`):
+
+| Success (frame 1209, ADD 1.27 mm) | Failure (frame 1052, roll ambiguity) |
+| --- | --- |
+| ![Success demo](docs/assets/success_pose_demo.jpg) | ![Failure demo](docs/assets/failure_pose_demo.jpg) |
+
+![Sequence preview](docs/assets/pose_sequence_preview.jpg)
+
+GT = green, PCA init = blue, ICP prediction = red. The 23-frame sequence
+(scene 50, frames 620–769, all successful) is assembled into an MP4 from the
+stored per-frame overlays (local artifact under `outputs/demo/`, gitignored).
+Every build is gated by a GT-overlay convention check: the projected GT pose
+must land on `mask_visib` (measured 0.92–0.95), guarding units and coordinate
+conventions. The failure case shows the declared `roll_symmetry_ambiguity`
+mode — ADD-S 2.52 mm (surface fits) but ADD 61.85 mm (flipped about the
+bottle's near-symmetric axis) — failure analysis on display, not hidden error.
+
 ## Dataset & Evaluation
 
 - **Data**: BOP YCB-V `test_bop19` minimal subset (12 scenes, 900 RGB-D frames, 21 textured
