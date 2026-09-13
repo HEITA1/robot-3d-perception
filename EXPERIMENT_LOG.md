@@ -27,10 +27,12 @@
 | EXP-012 | P3.1-G depth noise sanity（1mm 不支持，训练前停止） | 本文件 |
 | EXP-013 | FoundationPose feasibility（obj5×5 帧） | **已注册，runtime 待 3090**；目录别名 `fp_exp004_feasibility`（Phase 4 命名惯例，见 `configs/fp_exp013.yaml`） |
 | EXP-014 | W2-3 跨物体统一 baseline（7 物体集，5 新物体 ×10 帧） | 本文件 + `outputs/w2_3/`；registry `configs/evaluation_objects.yaml` |
+| EXP-015 | W2-4 扩评测（5 新物体全 scene ×75 帧）+ **baseline freeze** | 本文件 + `outputs/w2_4/`；冻结记录见 `docs/BASELINE_OPERATING_ENVELOPE.md` §6 |
 
 **编号说明**：`docs/PHASE4_PREFLIGHT.md` §7 曾把 "EXP-014" **预留**给未执行的 FoundationPose
 扩帧提案（仅设计、从未注册/运行）；按编号规则（授予实际产出数值结果的实验），EXP-014 归属
-W2-3 跨物体统一 baseline。该 FP 提案若将来执行，将顺延使用下一个可用编号。
+W2-3 跨物体统一 baseline、EXP-015 归属 W2-4 扩评测+冻结。该 FP 提案若将来执行，将顺延使用
+下一个可用编号。
 
 **无 EXP 编号的诊断文档**（只读审计/分析既有产物，按上述规则不编号）：
 P3.1-A → `docs/P3_1_A_ROBUST_NORMALIZATION.md`（单变量消融，Outcome D）；
@@ -699,3 +701,57 @@ Gate 3 逐层定位 → `docs/P3_0_GATE3_DEBUG.md`（D1–D6）。
   （anchor 行逐位复现 1.30 / 2.67 冻结值）。
 - 本 addendum **不改变 EXP-014 的任何数字、算法或参数**；失败语义的权威表述以
   `docs/BASELINE_OPERATING_ENVELOPE.md` 为准。
+
+---
+
+## EXP-015 — W2-4 扩评测（full-scene coverage）→ DoD 达成 → Baseline Freeze
+
+- **日期**：2026-09-13
+- **Phase**：W2-4（同一冻结 baseline 的覆盖扩展与冻结，非新方法、非调参）
+- **Question**：W2-3（EXP-014）10 帧初始子集观察到的 operating envelope 与失败模式，
+  在每个新物体扩展到**完整 scene 覆盖（75 帧，与 anchors 的 EXP-006 覆盖对齐）**后
+  是否仍然成立？达到 DoD 后正式冻结 baseline 评测范围。
+- **Hypothesis**（预注册）：
+  1. 同一冻结配置（指纹 `584da3b46fa28ed4`，与 p2_4/w2_3 逐位相同）无需改动即可全量运行；
+  2. W2-3 的失败模式集合（obj2 roll、obj6 点数地板、obj10 insufficient+roll、
+     obj14 no-converge+roll、obj15 全成功）在扩评测后保持，比例可能变化；
+  3. 失败比例若变化，如实记录并修正 envelope 表述（预注册：不为维持旧结论而忽略变化）。
+- **Setup**：
+  - 配置 `configs/w2_4_expanded_baseline.yaml`：5 新物体各 **75 帧 = 完整 scene 全覆盖**
+    （obj2/obj10/obj15→scene 50，obj6/obj14→scene 48，与 W2-3 同 scene；无任何筛帧）；
+    icp/selection/success 与 p2_4/w2_3 逐项相同（测试守护 + 指纹）；
+  - anchors obj5/obj13 不重跑（source=historical，EXP-006）；
+  - metric policy：registry 预注册（obj6→ADD-S，其余 ADD）；
+  - 入口 `run_p2_3 --config configs/w2_4_expanded_baseline.yaml`；CPU 全程 ~18 min。
+- **Run**：`outputs/w2_4/20260913-152411/`（375 帧，exit 0，失败帧全保留）
+- **Result**（冻结统一表 `outputs/w2_4/unified_table.md`；W2-3↔W2-4 对照
+  `outputs/w2_4/w2_3_vs_w2_4_comparison.md`）：
+
+| Obj | N | Valid | Attempted | Success | Rate | med 判据列 | Failure composition |
+| --- | ---: | ---: | ---: | ---: | --- | ---: | --- |
+| 2 cracker_box | 75 | 75 | 75 | 33 | 44.0% | 120.09mm | roll×42, success×33 |
+| 6 tuna_fish_can | 75 | 75 | **0** | 0 | 0% | – | insufficient×75 |
+| 10 banana | 75 | 75 | 62 | 59 | 78.7% | 2.44mm | insufficient×13, roll×3, success×59 |
+| 14 mug | 75 | 75 | 62 | 0 | 0% | 178.50mm | no_converge×47, roll×15, insufficient×13 |
+| 15 power_drill | 75 | 75 | 75 | 75 | 100% | 1.15mm | 无 |
+| 5 bottle（hist） | 75 | 75 | 75 | 70 | 93.3% | 1.30mm | roll×5 |
+| 13 bowl（hist） | 75 | 75 | 75 | 58 | 77.3% | 2.67mm(ADD-S) | no_converge×16, sel×1 |
+
+- **Analysis（W2-3 → W2-4 稳定性）**：
+  1. **5 个物体 failure tag 集合全部不变**——W2-3 的失败模式无一生新增/消失；
+  2. **obj6 完全确认**：attempted 0→0（75/75 pre-solver 拒绝）——点数地板是结构性
+     envelope，不是抽样波动；
+  3. **obj14 稳定**：0% pose 保持（条件口径 0/62）；构成比例 no_converge 76% 主导；
+  4. **obj15 完全稳定**：100%→100%（med 1.15mm）；
+  5. **obj10 稳定偏好**：70%→78.7%（条件 95.2%）；
+  6. **obj2 唯一显著变化**：70%→44%——roll 歧义在全量下占 56%（42/75）。10 帧采样
+     低估了该 regime。**envelope 表述已修正**：决定性变量是**对称性**（近对称盒被
+     翻面支配），而非早期表述的"大尺寸/强纹理⇒强"；
+  7. 无 runtime_error、无输入无效帧；所有失败帧保留在 CSV。
+- **Decision**：
+  1. **DoD 达成**（评测 ≥5 物体，实际 7 物体 ×75 帧 + 10 帧初始子集两层数据）；
+  2. **Baseline Freeze 生效**：物体集/场景/覆盖/参数（指纹）/metric policy/阈值/mask/
+     统计语义/envelope/limitations 全部冻结（`docs/BASELINE_OPERATING_ENVELOPE.md` §6）；
+     **停止继续扩大 benchmark**（不跑 21 物体、不加场景、不加帧、不调参）；
+  3. registry eval_source 更新为 EXP-015（5 新物体的冻结数字来源）；
+  4. 后续强基线对照 = FoundationPose（EXP-013，待 3090）；鲁棒性 = Phase 5（另行授权）。

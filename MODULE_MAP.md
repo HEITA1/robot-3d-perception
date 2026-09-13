@@ -35,7 +35,9 @@
 | `configs/p3_0_gate3.yaml` | P3.0-S Gate 3 真实 YCB-V smoke test 配置（测试帧/pipeline/判定标准） | [x] |
 | `configs/evaluation_objects.yaml` | W2-2 评测物体集 registry（7 物体选择记录；`evaluated` 仅标记有真实实验的 anchors，非结果文件） | [x] |
 | `configs/w2_3_multibaseline.yaml` | W2-3/EXP-014 统一跨物体 baseline 配置（5 新物体 ×10 帧；冻结参数与 p2_4 逐项相同） | [x] |
-| `scripts/w2_3_unified_table.py` | EXP-014 汇总：per-frame CSV → 统一 7 物体表（total/valid/attempted/success 四层 + 双成功率 + failure composition；historical/EXP-014 分列；中位数口径=EXP-006 metrics.json 约定） | [x] |
+| `configs/w2_4_expanded_baseline.yaml` | W2-4/EXP-015 扩评测配置（5 新物体全 scene ×75 帧；冻结参数指纹 `584da3b46fa28ed4`） | [x] |
+| `scripts/w2_3_unified_table.py` | EXP-014/015 汇总：per-frame CSV → 统一 7 物体表（total/valid/attempted/success 四层 + 双成功率 + failure composition；historical/新 run 分列；中位数口径=EXP-006 metrics.json 约定） | [x] |
+| `scripts/w2_4_compare.py` | EXP-014 ↔ EXP-015 对照：10 帧初始 vs 全量覆盖的失败构成稳定性（无显著性检验） | [x] |
 | `scripts/p3_0_gate3.py` | Gate 3 执行脚本（独立入口，oracle mask→CoordNet→RANSAC→ICP→评测） | [x] |
 | `scripts/_audit_coordinate_transform.py` / `_debug_gate3.py` | 变换链审计（合成闭环 4°/4mm）/ D1–D6 逐层故障定位 | [x] |
 | `scripts/p3_1_a_robust_norm.py` | P3.1-A 单变量消融（max→p95 归一化，Outcome D） | [x] |
@@ -52,7 +54,7 @@
 | `scripts/p2_0_intra_scene_control.py` | P2.0 归因对照实验（同场景参考库，排除评测帧） | [x] |
 | `src/r3p/experiments/run_p2_1.py` | P2.1 统一入口（渲染模板库 → SIFT → PnP，与 P2.0 可比） | [x] |
 | `src/r3p/experiments/run_p2_3.py` | P2.3 统一入口（两阶段评估/fitness 选择/失败 taxonomy/四重 overlay） | [x] |
-| `tests/` | se3/metrics/camera/synthetic/config（28）+ 真实 YCB-V（7）+ pose 合成回归（3）+ learn（5）+ render_templates（4）+ geo_init（5）+ foundationpose（11）+ demo（10）+ evaluation_objects registry（11）+ w2_3 统一评测守护（7），共 91 项（本地全量；CI 上数据相关测试自动跳过） | [x] |
+| `tests/` | se3/metrics/camera/synthetic/config（28）+ 真实 YCB-V（7）+ pose 合成回归（3）+ learn（5）+ render_templates（4）+ geo_init（5）+ foundationpose（11）+ demo（10）+ evaluation_objects registry（11）+ w2_3 统一评测守护（7）+ w2_4 扩评测与冻结守护（6），共 97 项（本地全量；CI 上数据相关测试自动跳过） | [x] |
 | PnP / RANSAC（`pose/sift_pnp.py` 内，cv2.solvePnPRansac） | 2D-3D 位姿求解（P2.0 路线，已证伪并关闭） | [x]（路线关闭） |
 | ICP（`pose/geo_init.py::icp_refine`，Open3D point-to-plane） | 点云配准 / 位姿精化（P2 Classical 基线核心） | [x] |
 | RGB/点云编码器 + 融合 + 位姿头（计划 `models/`） | 学习基线 | [ ] Phase 3 |

@@ -96,37 +96,41 @@ pipeline verified end-to-end, 3090 runner with environment gating). Runtime exec
 
 ![Geometry distribution audit](docs/assets/geometry_distribution_audit.png)
 
-### Multi-Object Baseline — EXP-014 (W2-3)
+### Multi-Object Baseline — EXP-014 initial → EXP-015 expanded (frozen)
 
 The same frozen classical baseline (identical parameters, oracle mask, ADD(-S) < 0.1d)
-run on the 7-object evaluation set. N = actually evaluated frames; anchors are the
-historical EXP-006 full runs, new objects use a 10-frame deterministic even sample
-(scene 50 where possible). Error medians follow the EXP-006 convention (all frames
-that produced a pose, gate failures included).
+over the 7-object evaluation set. The five coverage complements were first evaluated on
+a 10-frame deterministic sample (EXP-014), then expanded to **full-scene coverage
+(75 frames each, no frame dropped)** in EXP-015 — matching the anchors' historical
+75-frame coverage. **The baseline evaluation is now frozen** (parameters fingerprinted;
+any change requires a new experiment). Error medians follow the EXP-006 convention
+(all frames that produced a pose, gate failures included).
 
 | Obj | Name | Source | Total | Attempted | Success | med ADD / ADD-S |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
 | 5 | mustard_bottle | historical (EXP-006) | 75 | 75 | 70/75 = 93.3% | 1.30 / 1.21 mm |
 | 13 | bowl | historical (EXP-006) | 75 | 75 | 58/75 = 77.3% | 94.57 / **2.67** mm (ADD-S) |
-| 2 | cracker_box | EXP-014 | 10 | 10 | 7/10 | 3.19 / 2.76 mm |
-| 6 | tuna_fish_can | EXP-014 | 10 | **0** | **0/10** | – (pre-solver point-cloud floor; attempted = 0) |
-| 10 | banana | EXP-014 | 10 | 8 | 7/10 (7/8 conditional) | 3.48 / 1.71 mm |
-| 14 | mug | EXP-014 | 10 | 9 | **0/10** (0/9 conditional) | 190.82 / 149.71 mm |
-| 15 | power_drill | EXP-014 | 10 | 10 | 10/10 | 1.21 / 1.17 mm |
+| 2 | cracker_box | EXP-015 | 75 | 75 | 33/75 = 44.0% | 120.09 / 4.18 mm (roll flips ×42) |
+| 6 | tuna_fish_can | EXP-015 | 75 | **0** | **0/75** | – (pre-solver point-cloud floor) |
+| 10 | banana | EXP-015 | 75 | 62 | 59/75 = 78.7% (95.2% conditional) | 2.44 / 1.53 mm |
+| 14 | mug | EXP-015 | 75 | 62 | **0/75** | 178.50 / 133.09 mm |
+| 15 | power_drill | EXP-015 | 75 | 75 | **75/75 = 100%** | 1.15 / 1.11 mm |
 
 *Attempted = frames that entered the solver; pre-solver `insufficient_observation`
-rejections are not attempts. `icp_no_converge` frames ran PCA+ICP (pose and metrics
-exist) and count as attempted. Full semantics: `docs/BASELINE_OPERATING_ENVELOPE.md`.*
+rejections are not attempts; `icp_no_converge` frames ran PCA+ICP and count as
+attempted. Full semantics: `docs/BASELINE_OPERATING_ENVELOPE.md`.*
 
-Documented baseline envelope (frozen parameters, zero tuning): strong on large /
-rich-geometry / textured objects (drill 10/10 at ~1.2 mm); **three failure regimes** —
-(A) symmetry ambiguity (roll flips: bottle ×5, box ×3, banana ×1, mug ×2), (B)
-pre-solver insufficient observation on small flat objects (tuna can: whole mesh is
-990 points at the 5 mm voxel < the 500-point minimum → attempted = 0), and (C) ICP
-non-convergence on low-texture concave surfaces (mug 0/10 pose with attempted = 9).
-These boundaries motivate the model-based comparison (EXP-013, pending 3090).
-Full record: `EXPERIMENT_LOG.md` EXP-014 · table: `outputs/w2_3/unified_table.md`
-· envelope: `docs/BASELINE_OPERATING_ENVELOPE.md`.
+Documented operating envelope (frozen, zero tuning; three failure regimes): **(A)
+symmetry ambiguity** dominates near-symmetric objects (box flips 42/75 — the decisive
+variable is symmetry, not size/texture; bottle roll ×5), **(B) pre-solver insufficient
+observation** on small flat objects (tuna can: attempted = 0 at 10 and at 75 frames),
+**(C) ICP non-convergence** on low-texture concave surfaces (mug 0/75 pose). Strengths:
+complex textured mechanisms (drill 100%) and elongated asymmetric objects (banana,
+95.2% conditional). The EXP-014 → EXP-015 comparison kept every failure-tag set
+unchanged. These boundaries motivate the model-based comparison (EXP-013, pending 3090).
+Full record: `EXPERIMENT_LOG.md` EXP-014/015 · table: `outputs/w2_4/unified_table.md`
+· comparison: `outputs/w2_4/w2_3_vs_w2_4_comparison.md` · envelope:
+`docs/BASELINE_OPERATING_ENVELOPE.md` (incl. freeze record §6).
 
 ## Demo Artifacts
 
@@ -158,7 +162,7 @@ bottle's near-symmetric axis) — failure analysis on display, not hidden error.
 - **Evaluation object set (W2-2)**: 7 objects selected for geometry / appearance / symmetry
   coverage — anchors obj5 `006_mustard_bottle` (asymmetric → ADD) and obj13 `024_bowl`
   (rotationally symmetric → ADD-S), evaluated in EXP-006, plus obj2 / obj6 / obj10 / obj14 /
-  obj15 evaluated in EXP-014 (unified 10-frame subset per object).
+  obj15 evaluated in EXP-015 (**full-scene 75-frame coverage, frozen baseline**).
   Rationale: `docs/EVALUATION_OBJECT_SET.md` · registry: `configs/evaluation_objects.yaml`.
 - **Controlled condition**: ground-truth `mask_visib` segmentation is used by all methods
   (oracle mask) — this isolates pose estimation from detection and is stated on every
@@ -195,9 +199,9 @@ tests/             91 tests (regression + real-data contracts)
 
 Stated as current controlled scope and planned work — not as defects:
 
-- **7-object evaluation set** (`docs/EVALUATION_OBJECT_SET.md`): anchors evaluated at full
-  75-frame coverage (EXP-006), the five coverage complements at the unified 10-frame subset
-  (EXP-014) — N is labeled per result; broader expansion stays gated on budget.
+- **7-object evaluation set** (`docs/EVALUATION_OBJECT_SET.md`), **frozen**: anchors at
+  full 75-frame coverage (EXP-006) and the five complements expanded to full-scene
+  75-frame coverage (EXP-015); broader expansion is out of scope by freeze decision.
 - **Oracle mask** for all pose methods: detection/segmentation is intentionally excluded
   to isolate the pose variable.
 - **Controlled experiments** dominate so far: robustness perturbation studies

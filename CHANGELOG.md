@@ -2,6 +2,26 @@
 
 > 重要实现变化（不是每个 commit 都记）。格式：日期 + Phase + 变更。
 
+## 2026-09-13 — W2-4 / EXP-015：扩评测至全 scene 覆盖 → DoD 达成 → **baseline freeze**
+
+- **执行**：5 新物体从 10 帧初始子集扩到**完整 scene 覆盖（各 75 帧，全部帧无丢弃）**
+  （obj2/10/15→scene 50，obj6/14→scene 48，与 anchors 的 EXP-006 覆盖对齐）；
+  配置 `configs/w2_4_expanded_baseline.yaml` 与 p2_4/w2_3 冻结参数逐位相同
+  （sha256 指纹 `584da3b46fa28ed4`，测试守护）；anchors 不重跑。CPU ~18 min。
+- **结果**（`outputs/w2_4/unified_table.md`；W2-3↔W2-4 对照
+  `w2_3_vs_w2_4_comparison.md`）：drill **75/75**（med 1.15mm）、banana **59/75**
+  （条件 95.2%）、box **33/75**（roll×42——10 帧采样曾低估该 regime，envelope 表述
+  已修正为「对称性是决定性变量」）、tuna **0/75 且 attempted=0**（点数地板结构性确认）、
+  mug **0/75 pose**（no_converge×47 主导）。**5 个物体 failure tag 集合全部不变**。
+- **Baseline Freeze 生效**：`docs/BASELINE_OPERATING_ENVELOPE.md` §6 冻结记录
+  （物体集/场景/覆盖/参数指纹/metric policy/阈值/mask/统计语义/envelope/limitations）；
+  registry eval_source → EXP-015；停止继续扩大 benchmark（不跑 21 物体/不加场景/不调参）。
+- 新增 `tests/test_w2_4.py`（6 项：指纹守护、三实验参数一致、全 scene 覆盖与 registry
+  metric 一致、对照脚本单测、扩评测不变量、anchor 冻结数字复现）；泛化
+  `w2_3_unified_table.py`（--source-label）+ 新增 `scripts/w2_4_compare.py`。
+- EXPERIMENT_LOG 登记 **EXP-015**；README/PROJECT_SPEC/CHANGELOG/MODULE_MAP 同步。
+  无新依赖、无下载、未 push。
+
 ## 2026-09-13 — W2-3 / EXP-014：跨物体统一 baseline 评测（7 物体集）
 
 - **执行**：冻结 P2.4 pipeline（零算法改动）在 5 个新物体上运行（obj2/6/10/14/15 × 10 帧

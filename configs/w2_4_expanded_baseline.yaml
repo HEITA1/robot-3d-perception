@@ -1,0 +1,59 @@
+# W2-4 / EXP-015: expanded multi-object baseline (full-scene coverage) + freeze.
+#
+# protocol_version = W2-3 frozen baseline (EXP-014). Parameters are IDENTICAL
+# to configs/p2_4.yaml / configs/w2_3_multibaseline.yaml (icp/selection/
+# success sections bit-for-bit; guarded by tests/test_w2_4.py fingerprint).
+# Only the frame policy changes: 10-frame deterministic sample -> ALL 75
+# frames of each object's established scene (same scenes as W2-3), matching
+# the anchors' historical EXP-006 coverage (75 frames each).
+#
+# Anchors obj5/obj13 are NOT re-run (source = historical, EXP-006).
+# No cherry-picking: full scene coverage; invalid/failed frames are recorded,
+# never dropped. Zero parameter tuning — see docs/BASELINE_OPERATING_ENVELOPE.md.
+
+data:
+  root: data/ycbv
+
+objects:
+  - obj_id: 2
+    eval_scene: 50
+    n_frames: 75           # W2-4: full scene coverage (deterministic: all frames)
+    success_metric: add        # cracker box: asymmetric -> ADD (pre-registered)
+    mesh: models/obj_000002.ply
+  - obj_id: 6
+    eval_scene: 48
+    n_frames: 75
+    success_metric: adds       # tuna can: rotationally symmetric -> ADD-S (pre-registered)
+    mesh: models/obj_000006.ply
+  - obj_id: 10
+    eval_scene: 50
+    n_frames: 75
+    success_metric: add        # banana: asymmetric -> ADD (pre-registered)
+    mesh: models/obj_000010.ply
+  - obj_id: 14
+    eval_scene: 48
+    n_frames: 75
+    success_metric: add        # mug: handle breaks rotational symmetry -> ADD (pre-registered)
+    mesh: models/obj_000014.ply
+  - obj_id: 15
+    eval_scene: 50
+    n_frames: 75
+    success_metric: add        # power drill: asymmetric -> ADD (pre-registered)
+    mesh: models/obj_000015.ply
+
+icp:
+  voxel_m: 0.005
+  corr_schedule_m: [0.03, 0.01, 0.003]   # frozen schedule (identical to P2.3-S/P2.4/W2-3)
+  max_iter_per_stage: 60
+  min_cloud_pts: 500
+
+selection:                    # solver gates (identical to P2.3-S/P2.4/W2-3)
+  min_fitness: 0.5
+  max_rmse_m: 0.004
+
+success:
+  add_diameter_frac: 0.1      # ADD(-S) < 0.1d, per-object official diameter
+
+output:
+  root: outputs
+  name: w2_4

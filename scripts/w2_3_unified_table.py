@@ -157,7 +157,7 @@ def to_markdown(rows: list[dict]) -> str:
     return "".join(lines)
 
 
-def build(run_dir: Path, historical_dir: Path) -> list[dict]:
+def build(run_dir: Path, historical_dir: Path, new_source: str = "EXP-014 (W2-3)") -> list[dict]:
     with open(REGISTRY, encoding="utf-8") as f:
         registry = yaml.safe_load(f)
     rows = []
@@ -167,7 +167,7 @@ def build(run_dir: Path, historical_dir: Path) -> list[dict]:
             source = "historical (EXP-006)"
         else:
             csv_path = run_dir / f"per_frame_obj{obj['id']}.csv"
-            source = "EXP-014 (W2-3)"
+            source = new_source
         if not csv_path.is_file():
             raise FileNotFoundError(f"missing per-frame CSV for obj{obj['id']}: {csv_path}")
         rows.append(object_row(obj, load_rows(csv_path), source))
@@ -179,10 +179,12 @@ def main(argv=None) -> None:
     parser.add_argument("--run", required=True, help="W2-3 run directory (timestamped)")
     parser.add_argument("--historical", default="outputs/p2_4/20260830-161911",
                         help="historical EXP-006 (P2.4) run directory for the anchors")
+    parser.add_argument("--source-label", default="EXP-014 (W2-3)",
+                        help="source label for the non-anchor objects (e.g. 'EXP-015 (W2-4)')")
     parser.add_argument("--output-dir", default="outputs/w2_3")
     args = parser.parse_args(argv)
 
-    rows = build(Path(args.run), Path(args.historical))
+    rows = build(Path(args.run), Path(args.historical), args.source_label)
     out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 

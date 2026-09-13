@@ -64,9 +64,10 @@ FoundationPose（Phase 4 起的主要 model-based baseline，EXP-013，runtime �
 自研学习路线（CoordNet）已于 Gate 3 NO-GO + P3.1 诊断链完成后关闭（决策 D10）；
 其代码与记录保留为诊断依据，不再是当前主路线。
 
-W2-3（EXP-014）建立了该 classical baseline 在 7 物体评测集上的 **operating envelope**
+W2-3（EXP-014）建立了该 classical baseline 在 7 物体评测集上的 **operating envelope**；
+W2-4（EXP-015）扩至全 scene 覆盖（5 新物体 ×75 帧）并**正式冻结** baseline 评测范围
 （失败 regime A 对称歧义 / B 前置观测不足 / C 低纹理 ICP 不收敛——见
-`docs/BASELINE_OPERATING_ENVELOPE.md`；零调参，边界如实记录）。
+`docs/BASELINE_OPERATING_ENVELOPE.md` §6 freeze record；零调参，边界如实记录）。
 
 ## 5. Scope Freeze（未经明确批准不得加入）
 
