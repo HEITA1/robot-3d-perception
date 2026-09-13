@@ -48,13 +48,15 @@
 | `scripts/p3_1_f_geometry_distribution.py` | P3.1-F 几何分布审计（网络真实输入 vs 合成的分布/覆盖/域差量化，两 regime 划分） | [x] |
 | `scripts/p3_1_g_noise_sanity.py` | P3.1-G Phase 1 深度噪声量级 sanity check（3×3 高通残差 + 平滑门控；1mm 不被支持） | [x] |
 | `src/r3p/foundationpose/` | Phase 4 项目侧集成：InferenceInput/EvaluationData（GT 结构性隔离）、单位规则与断言、adapter、mock backend、evaluator/viz wrapper、EXP-013 冻结配置 | [x] |
+| `src/r3p/foundationpose/runtime.py` | 官方 estimater 最小接线（惰性导入；轻薄本不可达 → FoundationPoseRuntimeUnavailable；mesh mm→m 恰好一次 + meter-band 断言；真实执行仅在 3090 smoke 验证） | [x]（runtime ⏳ 3090） |
+| `delivery/foundationpose_3090/` | Stage A 3090 执行 Bundle：README_3090 手册 + CHECK_ENV/INSTALL/PREPARE_DATA/SMOKE/EXP013(LOCKED)/COLLECT 脚本 + 5 份 manifest 文档（68KB 纯文本，零大文件） | [x]（执行 ⏳ 3090） |
 | `scripts/run_foundationpose_exp013.py` | 3090 runner（环境门控→adapter→backend→evaluator→manifest；mock 仅 _mock 目录） | [x] |
 | `scripts/foundationpose_env_check.py` | 13 组件环境检查器（GPU/CUDA/torch-cuda/nvdiffrast/pytorch3d/FP source/checkpoint/dataset/config） | [x] |
 | `scripts/verify_ycbv_data.py` | 数据集下载后完整性验证（GT 存在性/文件配对/往返/GT 叠加） | [x] |
 | `scripts/p2_0_intra_scene_control.py` | P2.0 归因对照实验（同场景参考库，排除评测帧） | [x] |
 | `src/r3p/experiments/run_p2_1.py` | P2.1 统一入口（渲染模板库 → SIFT → PnP，与 P2.0 可比） | [x] |
 | `src/r3p/experiments/run_p2_3.py` | P2.3 统一入口（两阶段评估/fitness 选择/失败 taxonomy/四重 overlay） | [x] |
-| `tests/` | se3/metrics/camera/synthetic/config（28）+ 真实 YCB-V（7）+ pose 合成回归（3）+ learn（5）+ render_templates（4）+ geo_init（5）+ foundationpose（11）+ demo（10）+ evaluation_objects registry（11）+ w2_3 统一评测守护（7）+ w2_4 扩评测与冻结守护（6），共 97 项（本地全量；CI 上数据相关测试自动跳过） | [x] |
+| `tests/` | se3/metrics/camera/synthetic/config（28）+ 真实 YCB-V（7）+ pose 合成回归（3）+ learn（5）+ render_templates（4）+ geo_init（5）+ foundationpose（11）+ demo（10）+ evaluation_objects registry（11）+ w2_3 统一评测守护（7）+ w2_4 扩评测与冻结守护（6）+ Stage A bundle 守护（6），共 103 项（本地全量；CI 上数据相关测试自动跳过） | [x] |
 | PnP / RANSAC（`pose/sift_pnp.py` 内，cv2.solvePnPRansac） | 2D-3D 位姿求解（P2.0 路线，已证伪并关闭） | [x]（路线关闭） |
 | ICP（`pose/geo_init.py::icp_refine`，Open3D point-to-plane） | 点云配准 / 位姿精化（P2 Classical 基线核心） | [x] |
 | RGB/点云编码器 + 融合 + 位姿头（计划 `models/`） | 学习基线 | [ ] Phase 3 |

@@ -2,6 +2,26 @@
 
 > 重要实现变化（不是每个 commit 都记）。格式：日期 + Phase + 变更。
 
+## 2026-09-13 — Stage A-LOCAL：FoundationPose 3090 Execution Bundle 准备
+
+- **新增 `delivery/foundationpose_3090/`**（68KB 纯文本，零大文件/零权重/零数据）：
+  README_3090 总手册（14 步顺序 + smoke/EXP-013 双 gate + PENDING_3090 清单 + 回传清单）、
+  ENVIRONMENT / DATA_MANIFEST（最小 BOP 集合：5 帧 rgb/depth/mask_visib[gid=2] + mesh +
+  scene 元数据；单位契约红线）/ DOWNLOAD_WEIGHTS（官方 refiner/scorer，⏳ 文件名与 sha256）
+  / MANIFEST 五份文档 + 6 个 safe-fail 脚本（CHECK_ENV 16 项 / INSTALL（r3p-fp env，
+  禁触 r3p，禁版本乱试）/ PREPARE_DATA / RUN_SMOKE_TEST（单帧 620）/ RUN_EXP013
+  （EXECUTION_LOCKED，需 --unlock + CONFIRM_EXP013=YES）/ COLLECT_RESULTS（delivery_back/
+  + SHA256））+ configs 逐字节副本。
+- **runtime 接线落地**：新增 `src/r3p/foundationpose/runtime.py`（官方 estimater 最小包装：
+  惰性导入、轻薄本不可达 → FoundationPoseRuntimeUnavailable、mesh mm→m 恰好一次 +
+  meter-band 断言、register() 零 GT 零初始位姿）；runner 新增 `--smoke`（单帧 gate，
+  is_smoke=true，拒绝 mock）并接通 foundationpose 后端（manifest 记录真实 repo_commit/
+  预测位姿）。**真实执行只在 3090 smoke 验证**（本机无 GPU，未假装执行）。
+- **本地验证**：6 个脚本 `bash -n` 全过；config 逐字节一致；runtime 惰性守卫、
+  runner smoke 拒绝 mock、bundle 完整性 —— 新增 6 项测试，103 passed 零回归。
+- 无下载、无 GPU 操作、未 push。下一阶段 = 用户手动拷贝 Bundle+数据到 3090 →
+  CHECK_ENV → INSTALL → SMOKE；Smoke PASS 后进入 Stage B（EXP-013 正式评测）。
+
 ## 2026-09-13 — W2-4 / EXP-015：扩评测至全 scene 覆盖 → DoD 达成 → **baseline freeze**
 
 - **执行**：5 新物体从 10 帧初始子集扩到**完整 scene 覆盖（各 75 帧，全部帧无丢弃）**

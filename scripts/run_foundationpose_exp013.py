@@ -35,6 +35,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 import cv2  # noqa: E402
+import numpy as np  # noqa: E402
 import yaml  # noqa: E402
 
 from r3p.datasets.ycbv_bop import YcbvBopDataset  # noqa: E402
@@ -45,7 +46,10 @@ from r3p.foundationpose import (  # noqa: E402
     MockFoundationPoseBackend,
     assert_no_gt_pose,
 )
+from r3p.foundationpose.runtime import FoundationPoseRuntime  # noqa: E402
 from r3p.foundationpose.evaluator import evaluate_fp_result, save_gt_pred_overlay  # noqa: E402
+
+SMOKE_FRAME = 620  # Stage A bundle: one-frame smoke gate (obj5 / scene 50)
 
 
 def run_env_checks(args, backend: str) -> bool:
@@ -80,10 +84,18 @@ def main():
     parser.add_argument("--checkpoint-dir", default=os.environ.get("FP_CHECKPOINT_DIR", ""))
     parser.add_argument("--check-only", action="store_true",
                         help="run environment checks and exit")
+    parser.add_argument("--smoke", action="store_true",
+                        help="one-frame smoke gate (frame %d only, outputs to "
+                             "smoke_test/, is_smoke=true); requires the "
+                             "foundationpose backend" % SMOKE_FRAME)
     args = parser.parse_args()
 
     cfg = yaml.safe_load(Path(args.config).read_text("utf-8"))
     backend = args.backend or cfg.get("backend", "foundationpose")
+    if args.smoke and backend != "foundationpose":
+        print("[runner] --smoke validates the REAL FoundationPose runtime; "
+              "mock plumbing is covered by pytest, not by smoke. Refusing.")
+        sys.exit(2)
 
     checks_ok = run_env_checks(args, backend)
     if args.check_only:
@@ -95,17 +107,21 @@ def main():
     out_root = Path(cfg["output"]["root"]) / cfg["output"]["name"]
     if backend == "mock":
         out_root = Path(str(out_root) + "_mock")  # mock never writes official results
+    if args.smoke:
+        out_root = out_root.parent / "smoke_test"
     out_root.mkdir(parents=True, exist_ok=True)
 
+    frame_ids = [SMOKE_FRAME] if args.smoke else list(cfg["frame_ids"])
     manifest = {
         "experiment_id": cfg["experiment_id"],
         "method": cfg["method"],
         "mode": cfg["mode"],
         "backend": backend,
         "is_mock": backend == "mock",
+        "is_smoke": bool(args.smoke),
         "object_id": cfg["object_id"],
         "scene_id": cfg["scene_id"],
-        "frame_ids": list(cfg["frame_ids"]),
+        "frame_ids": frame_ids,
         "mask_source": "bop_gt_mask_visib",
         "initialization_mode": "none",
         "gt_pose_usage": "evaluation_only",
@@ -117,15 +133,79 @@ def main():
     assert_no_gt_pose(manifest)
 
     if backend == "foundationpose":
-        # Real runtime wiring happens HERE on the 3090 machine (GPU present):
-        # import the official checkout and construct estimater.FoundationPose.
-        # The adapter intentionally stops short of importing it on CPU machines.
-        raise SystemExit(
-            "[runner] foundationpose backend selected, but the runtime wiring is "
-            "performed by the Phase 4 execution step on the 3090 machine "
-            "(see docs/PHASE4_PREFLIGHT.md section 9). Environment checks passed; "
-            "wire estimater.FoundationPose here."
+        # Real runtime wiring (implemented in r3p.foundationpose.runtime; the
+        # official checkout is imported lazily and validated by the SMOKE gate
+        # on the 3090 — never on this laptop). Records the exact repo commit.
+        runtime = FoundationPoseRuntime(
+            fp_repo_root=args.fp_repo, checkpoint_dir=args.checkpoint_dir,
         )
+        runtime.load_object(cfg["object_id"], Path(cfg["data"]["root"]) / cfg["data"]["mesh"])
+        manifest["foundationpose_repo_commit"] = runtime.repo_commit
+        manifest["checkpoint_dir"] = str(runtime.checkpoint_dir)
+        manifest["environment"] = {
+            "python": sys.version.split()[0],
+            "note": "full env manifest in env_manifest.txt (CHECK_ENV.sh)",
+        }
+        assert_no_gt_pose(manifest)
+
+        adapter = FoundationPoseAdapter(AdapterConfig(
+            data_root=cfg["data"]["root"],
+            obj_id=cfg["object_id"],
+            mesh_relpath=cfg["data"]["mesh"],
+            depth_scale=cfg["data"]["depth_scale"],
+            diameter_m=cfg["success"]["diameter_mm"] * 1e-3,
+        ))
+        ds = YcbvBopDataset(cfg["data"]["root"], obj_ids=(cfg["object_id"],),
+                            scene_ids=[cfg["scene_id"]], load_masks=True)
+        by_im = {int(ds.frames[i][1]): i for i in range(len(ds))}
+
+        records, poses = [], {}
+        for im in manifest["frame_ids"]:
+            obs = ds[by_im[im]]
+            inp = adapter.prepare_input(obs, obj_id=cfg["object_id"])
+            problems = adapter.validate_input(inp)
+            assert not problems, f"validation failed: {problems}"
+            t0 = time.time()
+            result = runtime.run_register(inp)
+            dt = time.time() - t0
+            ev = adapter.evaluation_data(obs, obj_id=cfg["object_id"])
+            metrics = evaluate_fp_result(result["T_cam_model"], ev)
+            save_gt_pred_overlay(inp.rgb, inp.K, ev.model_points_m, ev.gt_pose,
+                                 result["T_cam_model"],
+                                 out_root / f"overlay_{obs['frame_id'].replace('/', '_')}.png",
+                                 title=f"FP {metrics['add_mm']:.2f}mm")
+            poses[obs["frame_id"]] = np.asarray(result["T_cam_model"]).tolist()
+            records.append({"frame_id": obs["frame_id"], "runtime_s": round(dt, 3), **metrics})
+            print(f"  {obs['frame_id']}: FP add={metrics['add_mm']}mm "
+                  f"success={metrics['success']} ({dt:.1f}s)")
+
+        manifest["frames"] = records
+        manifest["predicted_poses_T_cam_model"] = poses  # camera frame, meters
+        n_ok = sum(1 for r in records if r["success"])
+        manifest["summary"] = {
+            "n_frames": len(records), "n_success": n_ok,
+            "note": ("SMOKE gate result — NOT the EXP-013 benchmark"
+                     if args.smoke else "EXP-013 frozen protocol result"),
+        }
+        (out_root / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+        if args.smoke:
+            (out_root / "prediction_pose.json").write_text(
+                json.dumps(poses, indent=2), encoding="utf-8")
+            (out_root / "runtime_manifest.json").write_text(json.dumps({
+                "foundationpose_repo_commit": manifest["foundationpose_repo_commit"],
+                "checkpoint_dir": manifest["checkpoint_dir"],
+                "python": manifest["environment"]["python"],
+                "smoke_frame": SMOKE_FRAME,
+                "gt_pose_used": False,
+                "is_smoke": True,
+            }, indent=2), encoding="utf-8")
+        tag = "SMOKE" if args.smoke else "EXP-013"
+        print(f"\n[runner] {tag} complete: {n_ok}/{len(records)} frames "
+              f"({'threshold ' + str(cfg['success']['threshold_mm']) + 'mm'})")
+        print(f"[runner] manifest: {out_root / 'manifest.json'}")
+        if args.smoke:
+            print("[runner] smoke != EXP-013: do not quote smoke metrics as benchmark results.")
+        return
 
     # ---------------- mock chain smoke (laptop) ----------------
     adapter = FoundationPoseAdapter(AdapterConfig(
