@@ -39,6 +39,7 @@ if [ ! -f "$FP_REPO_ROOT/estimater.py" ]; then
   git clone https://github.com/NVlabs/FoundationPose.git "$FP_REPO_ROOT" \
     || die "官方仓库克隆失败（网络/认证）"
 fi
+mkdir -p "$REPO_ROOT/outputs"
 git -C "$FP_REPO_ROOT" rev-parse HEAD | tee "$REPO_ROOT/outputs/fp_commit.txt"
 echo "  commit 已记录（写入 outputs/fp_commit.txt；manifest 将引用该值）"
 

@@ -25,24 +25,23 @@
    放到仓库同结构路径 `data/ycbv/...` 下。
 3. 本 Bundle 已在仓库内 `delivery/foundationpose_3090/`，随仓库一起到位即可。
 
-## 2. 执行顺序（每步都在 3090 上；Docker 隔离为主路径）
+## 2. 执行顺序（每步都在 3090 上；每行 = 一条可整行复制的命令，说明在行尾 # 后）
 
-```text
- 1. cd /home/<user>/robot-3d-perception
- 2. 把 BOP 最小数据放到 data/ycbv/...            （DATA_MANIFEST.md）
- 3. git clone https://github.com/NVlabs/FoundationPose.git   # 官方仓库
- 4. 记录 commit：git -C FoundationPose rev-parse HEAD        # 写入 fp_commit.txt
- 5. bash delivery/foundationpose_3090/DOCKER_SETUP.sh         # 拉官方基础镜像 + 构建派生镜像 + 容器内验证
- 6. bash delivery/foundationpose_3090/CHECK_ENV.sh            # 自动进容器；预期全 PASS
- 7. 下载官方 checkpoints（DOWNLOAD_WEIGHTS.md；仅官方 Google Drive）
- 8. bash delivery/foundationpose_3090/CHECK_ENV.sh            # 复查（含 checkpoint 项）
- 9. bash delivery/foundationpose_3090/PREPARE_DATA.sh         # 数据完整性 + 单位守卫（自动进容器，CPU）
-10. bash delivery/foundationpose_3090/RUN_SMOKE_TEST.sh       # 单帧 620 runtime gate（自动进容器，GPU）
-11. 检查 outputs/phase4_foundationpose/smoke_test/（manifest + overlay 人工目检）
-12. 仅在用户明确授权后（Stage B）：
-    CONFIRM_EXP013=YES bash delivery/foundationpose_3090/RUN_EXP013.sh --unlock
-13. bash delivery/foundationpose_3090/COLLECT_RESULTS.sh      # 汇集 delivery_back/（宿主机执行即可）
-14. 把 delivery_back/ 拷回轻薄本（结果回传清单见 §4）
+```bash
+cd /home/<user>/robot-3d-perception                                        # 1. 进入仓库根目录（U 盘的 robot-3d-perception 整体拷到 /home/<user>/）
+ls data/ycbv/test/000050/rgb/000620.png                                    # 2. 确认最小数据就位（U 盘已带好 21 个文件；如有缺件对照 DATA_MANIFEST.md 补拷）
+git clone https://github.com/NVlabs/FoundationPose.git                     # 3. 克隆官方 FoundationPose（仅官方源；不做任何修改）
+mkdir -p outputs && git -C FoundationPose rev-parse HEAD | tee outputs/fp_commit.txt   # 4. 钉死并记录官方 commit（manifest 会引用该值）
+bash delivery/foundationpose_3090/DOCKER_SETUP.sh                          # 5. Docker 隔离：拉官方基础镜像（10-20GB）+ 构建派生镜像 + 容器验证
+bash delivery/foundationpose_3090/CHECK_ENV.sh                             # 6. 环境检查（自动进容器；checkpoint 未下载前该项 FAIL 属预期）
+# 7. 下载官方 checkpoints（约 1-2GB，仅官方 Google Drive；⏳ 文件名/sha256 见 DOWNLOAD_WEIGHTS.md；>=1GB 记得先报批）
+bash delivery/foundationpose_3090/CHECK_ENV.sh                             # 8. 环境复查（此次应全部 PASS，含 checkpoint 项）
+bash delivery/foundationpose_3090/PREPARE_DATA.sh                          # 9. 数据完整性 + 米制单位守卫（CPU，自动进容器）
+bash delivery/foundationpose_3090/RUN_SMOKE_TEST.sh                        # 10. 单帧 smoke gate（frame 620，GPU；打印 READY FOR EXP-013 才算通过）
+ls outputs/phase4_foundationpose/smoke_test/                               # 11. 查看 smoke 产物（人工目检 overlay_000050_000620.png：GT 绿 / 预测红）
+CONFIRM_EXP013=YES bash delivery/foundationpose_3090/RUN_EXP013.sh --unlock            # 12. EXP-013 正式 5 帧（Stage B，须用户明确授权）
+bash delivery/foundationpose_3090/COLLECT_RESULTS.sh                       # 13. 汇集结果到 outputs/phase4_foundationpose/delivery_back/
+# 14. 拷回轻薄本：outputs/phase4_foundationpose/delivery_back/ 整目录（环境/数据/权重不需要回传）
 ```
 
 > fallback：若 Docker 路线不可用（无 docker 权限等），`USE_DOCKER=0 bash .../INSTALL.sh`
