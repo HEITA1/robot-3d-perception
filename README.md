@@ -104,22 +104,29 @@ historical EXP-006 full runs, new objects use a 10-frame deterministic even samp
 (scene 50 where possible). Error medians follow the EXP-006 convention (all frames
 that produced a pose, gate failures included).
 
-| Obj | Name | Source | N | Success | med ADD / ADD-S |
-| --- | --- | --- | ---: | ---: | ---: |
-| 5 | mustard_bottle | historical (EXP-006) | 75 | 70/75 = 93.3% | 1.30 / 1.21 mm |
-| 13 | bowl | historical (EXP-006) | 75 | 58/75 = 77.3% | 94.57 / **2.67** mm (ADD-S) |
-| 2 | cracker_box | EXP-014 | 10 | 7/10 | 3.19 / 2.76 mm |
-| 6 | tuna_fish_can | EXP-014 | 10 | **0/10** | – (all `insufficient_observation`) |
-| 10 | banana | EXP-014 | 10 | 7/10 | 3.48 / 1.71 mm |
-| 14 | mug | EXP-014 | 10 | **0/10** | 190.82 / 149.71 mm (7× `icp_no_converge`) |
-| 15 | power_drill | EXP-014 | 10 | 10/10 | 1.21 / 1.17 mm |
+| Obj | Name | Source | Total | Attempted | Success | med ADD / ADD-S |
+| --- | --- | --- | ---: | ---: | ---: | ---: |
+| 5 | mustard_bottle | historical (EXP-006) | 75 | 75 | 70/75 = 93.3% | 1.30 / 1.21 mm |
+| 13 | bowl | historical (EXP-006) | 75 | 75 | 58/75 = 77.3% | 94.57 / **2.67** mm (ADD-S) |
+| 2 | cracker_box | EXP-014 | 10 | 10 | 7/10 | 3.19 / 2.76 mm |
+| 6 | tuna_fish_can | EXP-014 | 10 | **0** | **0/10** | – (pre-solver point-cloud floor; attempted = 0) |
+| 10 | banana | EXP-014 | 10 | 8 | 7/10 (7/8 conditional) | 3.48 / 1.71 mm |
+| 14 | mug | EXP-014 | 10 | 9 | **0/10** (0/9 conditional) | 190.82 / 149.71 mm |
+| 15 | power_drill | EXP-014 | 10 | 10 | 10/10 | 1.21 / 1.17 mm |
 
-Documented baseline envelope: strong on large / rich-geometry / textured objects
-(drill 10/10 at ~1.2 mm), but (a) a frozen point-density floor excludes small flat
-objects (tuna can: whole mesh is 990 points at the 5 mm voxel < 500-point minimum)
-and (b) low-texture concave surfaces defeat ICP convergence (mug 0/10). No parameter
-was tuned — these boundaries motivate the model-based comparison (EXP-013, pending 3090).
-Full record: `EXPERIMENT_LOG.md` EXP-014 · table: `outputs/w2_3/unified_table.md`.
+*Attempted = frames that entered the solver; pre-solver `insufficient_observation`
+rejections are not attempts. `icp_no_converge` frames ran PCA+ICP (pose and metrics
+exist) and count as attempted. Full semantics: `docs/BASELINE_OPERATING_ENVELOPE.md`.*
+
+Documented baseline envelope (frozen parameters, zero tuning): strong on large /
+rich-geometry / textured objects (drill 10/10 at ~1.2 mm); **three failure regimes** —
+(A) symmetry ambiguity (roll flips: bottle ×5, box ×3, banana ×1, mug ×2), (B)
+pre-solver insufficient observation on small flat objects (tuna can: whole mesh is
+990 points at the 5 mm voxel < the 500-point minimum → attempted = 0), and (C) ICP
+non-convergence on low-texture concave surfaces (mug 0/10 pose with attempted = 9).
+These boundaries motivate the model-based comparison (EXP-013, pending 3090).
+Full record: `EXPERIMENT_LOG.md` EXP-014 · table: `outputs/w2_3/unified_table.md`
+· envelope: `docs/BASELINE_OPERATING_ENVELOPE.md`.
 
 ## Demo Artifacts
 
@@ -163,7 +170,7 @@ bottle's near-symmetric axis) — failure analysis on display, not hidden error.
   ordering, single-thread ICP for bit-reproducible runs (decision D9).
 - One-shot evaluation script per experiment; results (JSON/CSV/overlays) under
   `outputs/` (gitignored), summarized in `EXPERIMENT_LOG.md`.
-- 86 tests (`pytest`), including synthetic regression tests, real-data contract tests,
+- 91 tests (`pytest`), including synthetic regression tests, real-data contract tests,
   unit-conversion guards, and a structural GT-anti-leakage guard for the FoundationPose
   input manifest.
 
@@ -181,7 +188,7 @@ src/r3p/
 configs/           frozen per-experiment configs
 docs/              per-experiment reports and audits
 scripts/           dataset verification, diagnosis and FP runner scripts
-tests/             86 tests (regression + real-data contracts)
+tests/             91 tests (regression + real-data contracts)
 ```
 
 ## Current Scope & Limitations

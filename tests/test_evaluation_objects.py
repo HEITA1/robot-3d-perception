@@ -81,6 +81,28 @@ def test_required_metadata_fields(registry):
         assert float(o["diameter_mm"]) > 0
 
 
+def test_metric_policy_registered(registry):
+    """Symmetry metric policy must be explicit per object, with the policy
+    source stated (project pre-registered geometry policy — never worded as
+    an official YCB-V symmetry label; models_info has none)."""
+    policy = registry["metric_policy"]
+    assert policy["policy_source"] == "pre_registered_geometry_policy"
+    for o in registry["objects"]:
+        assert o["primary_metric"] in {"add", "adds"}
+        assert o["metric_reason"]
+        assert o["policy_source"] in {"pre_registered_geometry_policy", "historical_exp006_convention"}
+
+
+def test_symmetry_metric_assignment(registry):
+    by_id = {o["id"]: o for o in registry["objects"]}
+    assert by_id[6]["primary_metric"] == "adds"   # tuna can: geometric rotational symmetry
+    assert by_id[13]["primary_metric"] == "adds"  # bowl anchor (historical EXP-006 convention)
+    for oid in (2, 10, 14, 15):
+        assert by_id[oid]["primary_metric"] == "add"
+    assert by_id[5]["policy_source"] == "historical_exp006_convention"
+    assert by_id[13]["policy_source"] == "historical_exp006_convention"
+
+
 @pytest.mark.skipif(not (DATA_ROOT / "test").is_dir(), reason="local YCB-V subset not present")
 def test_names_and_diameters_match_bop_metadata(registry):
     from r3p.datasets.ycbv_bop import load_obj_names

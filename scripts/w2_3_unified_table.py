@@ -3,20 +3,36 @@
 Aggregates per-frame CSVs (produced by the frozen P2.3/P2.4 runner) into one
 comparable table across the W2-2 7-object evaluation set:
 
-- new objects  : per-frame CSVs from the W2-3 run        -> source = EXP-014 (W2-3)
+- new objects  : per-frame CSVs from the W2-3 run          -> source = EXP-014 (W2-3)
 - anchors      : per-frame CSVs from the historical P2.4 run -> source = historical (EXP-006)
 
-Aggregation only — no metric is redefined (per-frame columns come from the
-runner's compute_all output), no frame is dropped, failures are counted and
-carried into the table. Error medians follow the EXP-006 convention: computed
-over pose-successful frames, with N and success/N always shown so small-N
-rows are never confused with historical full-coverage rows.
+W2-3.1 statistical semantics (derived from the runner code + real CSVs, see
+docs/BASELINE_OPERATING_ENVELOPE.md):
 
-Usage::
+  total      frames sampled by the frozen deterministic selection (CSV rows)
+  valid      frames that passed input loading and entered processing; the
+             dataset contract raises on missing RGB/depth/mask/GT, so an
+             invalid input aborts the run loudly — valid == total in every
+             observed run (input_invalid = 0)
+  attempted  frames that entered the solver = total - insufficient_observation
+             - runtime_error. `insufficient_observation` is a PRE-solver
+             rejection (point-cloud floor): no pose, no metrics, NOT
+             attempted. `icp_no_converge` frames DID run PCA+ICP (pose and
+             metrics exist, fitness/rmse gates failed) and ARE attempted.
+  success    frames with pose_success = 1, i.e. ADD(-S) < 0.1d AND solver
+             gates passed (the runner's frozen definition)
 
-    python scripts/w2_3_unified_table.py --run outputs/w2_3/<timestamp> \
-        --historical outputs/p2_4/20260830-161911 \
-        --output-dir outputs/w2_3
+  success_rate        = success / total   (project convention, = metrics.json)
+  conditional_rate    = success / attempted, rendered "N/A (no solver
+                        attempt)" when attempted = 0 — never 0/0 = 0%
+
+Error medians follow the EXP-006 metrics.json convention exactly: over every
+frame that produced a metric value (solver-gate failures INCLUDED,
+insufficient-observation frames excluded) — anchor rows reproduce the frozen
+headline numbers bit-exactly.
+
+Aggregation only — no metric redefined, no frame dropped, raw failure tags
+preserved; the state classification is an aggregate view on top of them.
 """
 
 from __future__ import annotations
@@ -33,11 +49,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 import yaml  # noqa: E402
 
 REGISTRY = Path("configs/evaluation_objects.yaml")
-TABLE_COLUMNS = (
-    "object", "name", "source", "N", "success", "success_rate",
-    "median_ADD_mm", "median_ADD-S_mm", "median_trans_mm", "median_rot_deg",
-    "failure_tags",
-)
+
+# Failure tags that never entered the solver (pre-solver rejections / errors).
+PRE_SOLVER_TAGS = {"insufficient_observation", "runtime_error"}
+# Solver ran but failed the frozen fitness/rmse gates (pose + metrics exist).
+SOLVER_GATE_TAGS = {"icp_no_converge"}
 
 
 def load_rows(csv_path: Path) -> list[dict]:
@@ -51,24 +67,28 @@ def _median(rows: list[dict], column: str) -> float | None:
 
 
 def object_row(obj: dict, rows: list[dict], source: str) -> dict:
+    total = len(rows)
     success_rows = [r for r in rows if r.get("pose_success") == "1"]
-    # Error medians follow the EXP-006 metrics.json convention exactly: over
-    # every frame that produced a metric value (i.e. all frames except
-    # insufficient_observation / runtime_error), INCLUDING solver-gate
-    # failures (icp_no_converge keeps its pose metrics) — so anchor rows
-    # reproduce the frozen headline numbers bit-exactly.
+    pre_solver = [r for r in rows if r.get("failure_tag") in PRE_SOLVER_TAGS]
+    attempted_rows = [r for r in rows if r.get("failure_tag") not in PRE_SOLVER_TAGS]
+    gate_failures = [r for r in attempted_rows if r.get("failure_tag") in SOLVER_GATE_TAGS]
     tags: dict[str, int] = {}
     for r in rows:
         tag = r.get("failure_tag") or "unknown"
         tags[tag] = tags.get(tag, 0) + 1
-    n = len(rows)
+
+    attempted = len(attempted_rows)
     return {
         "object": obj["id"],
         "name": obj["name"],
         "source": source,
-        "N": n,
+        "primary_metric": obj.get("primary_metric"),
+        "total": total,
+        "valid": total,  # input-invalid frames abort the run (dataset contract); none observed
+        "attempted": attempted,
         "success": len(success_rows),
-        "success_rate": round(len(success_rows) / n, 3) if n else None,
+        "success_rate": round(len(success_rows) / total, 3) if total else None,
+        "conditional_success_rate": (round(len(success_rows) / attempted, 3) if attempted else None),
         "median_ADD_mm": _median(rows, "add_mm"),
         "median_ADD-S_mm": _median(rows, "adds_mm"),
         "median_trans_mm": _median(rows, "trans_mm"),
@@ -76,6 +96,15 @@ def object_row(obj: dict, rows: list[dict], source: str) -> dict:
         "diameter_mm": float(obj["diameter_mm"]),
         "eval_scene": obj.get("eval_scene"),
         "failure_tags": dict(sorted(tags.items())),
+        # aggregate state view (raw tags above stay authoritative)
+        "state_counts": {
+            "input_invalid": 0,
+            "pre_solver_insufficient": sum(1 for r in pre_solver if r.get("failure_tag") == "insufficient_observation"),
+            "runtime_error": sum(1 for r in pre_solver if r.get("failure_tag") == "runtime_error"),
+            "solver_gate_failure": len(gate_failures),
+            "pose_success": len(success_rows),
+            "pose_metric_failure": attempted - len(gate_failures) - len(success_rows),
+        },
     }
 
 
@@ -83,29 +112,47 @@ def fmt(value, spec: str = ".2f") -> str:
     return "-" if value is None else format(value, spec)
 
 
+def _rate(r: dict) -> str:
+    return "-" if r["success_rate"] is None else f"{r['success']}/{r['total']} ({r['success_rate']:.1%})"
+
+
+def _conditional(r: dict) -> str:
+    if r["attempted"] == 0:
+        return "N/A (no solver attempt)"
+    return f"{r['success']}/{r['attempted']} ({r['success'] / r['attempted']:.1%})"
+
+
 def to_markdown(rows: list[dict]) -> str:
     header = (
-        "| Obj | Name | Source | N | Success | Rate | med ADD (mm) | med ADD-S (mm) |"
-        " med trans (mm) | med rot (deg) | Failure tags |\n"
-        "| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |\n"
+        "| Obj | Name | Source | Metric | Total | Valid | Attempted | Success | succ/total | succ/attempted |"
+        " med ADD (mm) | med ADD-S (mm) | med trans (mm) | med rot (deg) | Failure composition |\n"
+        "| --- | --- | --- | --- | ---: | ---: | ---: | ---: | --- | --- |"
+        " ---: | ---: | ---: | ---: | --- |\n"
     )
     lines = [header]
     for r in rows:
+        metric = (r["primary_metric"] or "?").upper()
         tags = ", ".join(f"{k}×{v}" for k, v in r["failure_tags"].items())
         lines.append(
-            f"| {r['object']} | {r['name']} | {r['source']} | {r['N']} | "
-            f"{r['success']}/{r['N']} | {fmt(r['success_rate'], '.3f')} | "
+            f"| {r['object']} | {r['name']} | {r['source']} | {metric} | {r['total']} | {r['valid']} | "
+            f"{r['attempted']} | {r['success']} | {_rate(r)} | {_conditional(r)} | "
             f"{fmt(r['median_ADD_mm'])} | {fmt(r['median_ADD-S_mm'])} | "
             f"{fmt(r['median_trans_mm'])} | {fmt(r['median_rot_deg'])} | {tags} |\n"
         )
     lines.append(
         "\nProtocol: frozen EXP-006 (P2.4) classical baseline, oracle `mask_visib`,"
         " ADD(-S) < 0.1×diameter, identical ICP/selection parameters.\n"
-        "N = actually evaluated frames. Error medians are over every frame that produced"
-        " a metric value (EXP-006 metrics.json convention; solver-gate failures included,"
-        " insufficient-observation frames excluded); '-' when no frame produced a pose.\n"
-        "source = historical (EXP-006, 75 frames/obj5+obj13) vs EXP-014 (W2-3, 10 frames"
-        " deterministic even sampling) — coverage differs and is labeled per row.\n"
+        "total = sampled frames · valid = frames that entered processing (invalid input"
+        " aborts the run; none observed) · attempted = entered the solver (pre-solver"
+        " `insufficient_observation`/`runtime_error` excluded; `icp_no_converge` ran"
+        " PCA+ICP and IS attempted) · success = ADD(-S) < 0.1d with solver gates passed.\n"
+        "succ/total is the project success rate (metrics.json convention); succ/attempted"
+        " is the conditional pose success — the two are different metrics, and N/A means"
+        " no solver attempt happened under the frozen protocol (never 0/0).\n"
+        "Error medians: EXP-006 metrics.json convention (every frame that produced a"
+        " pose, gate failures included) — anchor rows reproduce the frozen numbers.\n"
+        "source = historical (EXP-006, 75 frames) vs EXP-014 (W2-3, 10-frame"
+        " deterministic even sample) — coverage differs and is labeled per row.\n"
     )
     return "".join(lines)
 

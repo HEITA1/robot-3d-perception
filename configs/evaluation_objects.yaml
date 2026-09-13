@@ -8,10 +8,24 @@
 set_size: 7
 selection_doc: docs/EVALUATION_OBJECT_SET.md
 
+# Metric policy — pre-registered BEFORE EXP-014 execution. Rule: geometric
+# symmetry -> ADD-S, otherwise ADD. This is the project's own pre-registered
+# geometry policy: YCB-V models_info.json carries NO symmetry annotations,
+# so no claim here may be worded as "official YCB-V symmetry label".
+# Anchors keep their historical EXP-006 metric semantics and are never
+# re-judged for the sake of a unified table (§10 of the W2-3.1 protocol).
+metric_policy:
+  rule: symmetric geometry -> ADD-S; otherwise ADD
+  policy_source: pre_registered_geometry_policy
+  historical_note: anchors (obj5/obj13) follow the frozen EXP-006 conventions
+
 objects:
   - id: 5
     name: 006_mustard_bottle
     role: anchor
+    primary_metric: add
+    metric_reason: asymmetric; roll near-symmetry is recorded as a failure mode, not a judging symmetry
+    policy_source: historical_exp006_convention
     diameter_mm: 196.463
     evaluated: true
     eval_source: EXP-006
@@ -20,6 +34,9 @@ objects:
   - id: 13
     name: 024_bowl
     role: anchor
+    primary_metric: adds
+    metric_reason: rotationally symmetric open surface
+    policy_source: historical_exp006_convention
     diameter_mm: 161.922
     evaluated: true
     eval_source: EXP-006
@@ -28,6 +45,9 @@ objects:
   - id: 2
     name: 003_cracker_box
     role: texture_diverse
+    primary_metric: add
+    metric_reason: asymmetric box (distinct faces)
+    policy_source: pre_registered_geometry_policy
     diameter_mm: 269.573
     evaluated: true
     eval_source: EXP-014
@@ -36,6 +56,9 @@ objects:
   - id: 6
     name: 007_tuna_fish_can
     role: symmetry_challenging
+    primary_metric: adds
+    metric_reason: geometric rotational symmetry (short cylinder, like the bowl anchor)
+    policy_source: pre_registered_geometry_policy
     diameter_mm: 89.797
     evaluated: true
     eval_source: EXP-014
@@ -44,6 +67,9 @@ objects:
   - id: 10
     name: 011_banana
     role: geometry_diverse
+    primary_metric: add
+    metric_reason: fully asymmetric elongated curved body
+    policy_source: pre_registered_geometry_policy
     diameter_mm: 197.796
     evaluated: true
     eval_source: EXP-014
@@ -52,6 +78,9 @@ objects:
   - id: 14
     name: 025_mug
     role: symmetry_challenging
+    primary_metric: add
+    metric_reason: handle breaks the rotational symmetry of the body
+    policy_source: pre_registered_geometry_policy
     diameter_mm: 124.99
     evaluated: true
     eval_source: EXP-014
@@ -60,6 +89,9 @@ objects:
   - id: 15
     name: 035_power_drill
     role: robustness_oriented
+    primary_metric: add
+    metric_reason: complex asymmetric mechanism
+    policy_source: pre_registered_geometry_policy
     diameter_mm: 226.17
     evaluated: true
     eval_source: EXP-014

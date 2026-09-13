@@ -674,3 +674,28 @@ Gate 3 逐层定位 → `docs/P3_0_GATE3_DEBUG.md`（D1–D6）。
      并与本 baseline 分列，不得混入 EXP-014 口径；
   3. obj6/obj14 的包络边界直接支撑 FoundationPose 强基线对照（EXP-013，待 3090）的必要性；
   4. 10 帧 ≠ 75 帧：跨物体比较仅在同一 N 口径内进行，README 引用时强制标注 N 与 source。
+
+### EXP-014 Addendum（2026-09-13，W2-3.1 协议收口——结果解释正式化，非算法改动）
+
+- **四层统计语义**（从 runner 代码 + 真实 CSV 推导，权威表述见
+  `docs/BASELINE_OPERATING_ENVELOPE.md` §4）：total=采样帧数；valid=进入处理的帧数
+  （无效输入会中止运行，实测 valid=total）；**attempted=进入 solver 的帧数
+  = total − insufficient_observation − runtime_error**（`icp_no_converge` 已跑
+  PCA+ICP 且有位姿/指标 → 计 attempted；`insufficient_observation` 是 solver 前
+  点数地板拒绝 → 不计）；success = ADD(-S)<0.1d 且过 solver 门（runner 冻结定义）。
+- **双成功率**：success_rate = success/total（项目 metrics.json 口径）；
+  conditional pose success = success/attempted（attempted=0 → N/A，禁止 0/0=0%）。
+- **obj6 Operating Envelope Finding（正式化）**：attempted=0——不是 "ICP 失败 10 次"，
+  而是冻结分辨率/点数门槛（5mm 体素、`min_cloud_pts=500`）下观测不足、无法进入
+  solver；探针证据：mask 健康 5–8k px、整只网格 @体素仅 990 点。
+- **obj14 failure composition（正式化）**：total=10, valid=10, attempted=9, success=0
+  = icp_no_converge×7（gate failure，有位姿有指标）+ roll_symmetry_ambiguity×2
+  + insufficient_observation×1。
+- **Symmetry metric policy 显式注册**：`configs/evaluation_objects.yaml` 的
+  `metric_policy`（pre_registered_geometry_policy，跑前预注册；anchors 沿用 EXP-006
+  口径永不重判；YCB-V models_info.json 无 symmetry 标注——不得表述为官方标签）。
+- **统一表升级**：Total/Valid/Attempted/Success 四层列 + 双成功率 + failure
+  composition（`scripts/w2_3_unified_table.py` v2）；误差中位数口径不变
+  （anchor 行逐位复现 1.30 / 2.67 冻结值）。
+- 本 addendum **不改变 EXP-014 的任何数字、算法或参数**；失败语义的权威表述以
+  `docs/BASELINE_OPERATING_ENVELOPE.md` 为准。
