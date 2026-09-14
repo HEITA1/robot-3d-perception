@@ -25,12 +25,8 @@ command -v conda >/dev/null || die "conda 不在 PATH（WSL 内先装 miniconda�
 CONDA_BASE="$(conda info --base)"
 ENV_PREFIX="$CONDA_BASE/envs/$ENV_NAME"
 
-# 编译工具链前置门（nvdiffrast 运行期 JIT + pytorch3d/mycpp 编译必需；cmake/ninja 由 wheels 提供）
-if ! command -v g++ >/dev/null 2>&1 || ! command -v gcc >/dev/null 2>&1; then
-  die "WSL 缺 gcc/g++（nvdiffrast JIT 与 pytorch3d/mycpp 编译必需）。一次性安装：
-  sudo apt update && sudo apt install -y build-essential libeigen3-dev libboost-system-dev libboost-program-options-dev
-  （需短暂网络；若无网络把 wsl bash -lc 'lsb_release -a' 输出发回，补离线 .deb 包）"
-fi
+# 编译工具链：由离线 conda 闭包提供（gcc 13.4 / gxx / binutils / sysroot 2.17 /
+# kernel-headers / make / boost 1.92 / zstd——3090 不联网方案），解包后自动就位
 
 echo "[2/7] 创建 env: $ENV_NAME (python 3.11)"
 if conda env list | grep -qE "^r3p( |$)"; then
@@ -65,6 +61,15 @@ source "$CONDA_BASE/etc/profile.d/conda.sh"
 conda activate "$ENV_NAME"
 PYTHON="$(command -v python)"
 echo "  python: $($PYTHON --version)"
+# conda 工具链（离线闭包：gcc 13.4/gxx/binutils/sysroot）——nvdiffrast JIT / pytorch3d / mycpp 的 CC/CXX
+if [ -x "$ENV_PREFIX/bin/x86_64-conda-linux-gnu-gcc" ]; then
+  export CC="$ENV_PREFIX/bin/x86_64-conda-linux-gnu-gcc"
+  export CXX="$ENV_PREFIX/bin/x86_64-conda-linux-gnu-g++"
+  export PATH="$ENV_PREFIX/bin:$PATH"
+  "$CC" --version | head -1
+elif ! command -v gcc >/dev/null 2>&1; then
+  die "编译器缺失：离线工具链未解入且系统无 gcc——offline_packages/conda_pkgs 不完整"
+fi
 
 echo "[3/7] PyTorch CUDA 构建（cu124；单一来源，不做版本搜索）"
 if [ ${#PIP_OFFLINE[@]} -gt 0 ]; then
@@ -127,14 +132,14 @@ if [ ${#PIP_OFFLINE[@]} -gt 0 ]; then
 fi
 
 echo "[6/7] GPU 扩展编译（nvdiffrast / pytorch3d / mycpp）"
-# 编译依赖前置检查（mycpp 需要 Boost/Eigen 头文件——apt 一次性提供；放在 30-60 分钟
+# 编译依赖前置检查（Boost/Eigen/pybind11 由离线 conda 包解入 env 前缀；放在 30-60 分钟
 # 的 pytorch3d 编译之前，缺了立刻报而不是白等一小时）
-BOOST_OK=$([ -f /usr/include/boost/version.hpp ] && echo 1 || echo 0)
-EIGEN_OK=$([ -d /usr/include/eigen3 ] || [ -d "$ENV_PREFIX/include/eigen3" ] && echo 1 || echo 0)
-if [ "$BOOST_OK" = "0" ] || [ "$EIGEN_OK" = "0" ]; then
-  die "mycpp 编译依赖缺失（boost=$BOOST_OK eigen3=$EIGEN_OK）。一次性安装：
-  sudo apt update && sudo apt install -y build-essential libeigen3-dev libboost-system-dev libboost-program-options-dev
-  （需短暂网络；若无网络把 wsl bash -lc 'lsb_release -a' 输出发回，补离线 .deb 包）"
+BOOST_OK=$([ -f "$ENV_PREFIX/include/boost/version.hpp" ] && echo 1 || echo 0)
+EIGEN_OK=$([ -d "$ENV_PREFIX/include/eigen3" ] && echo 1 || echo 0)
+PYBIND_OK=$([ -d "$ENV_PREFIX/share/cmake/pybind11" ] && echo 1 || echo 0)
+if [ "$BOOST_OK" = "0" ] || [ "$EIGEN_OK" = "0" ] || [ "$PYBIND_OK" = "0" ]; then
+  die "离线包缺件（boost=$BOOST_OK eigen3=$EIGEN_OK pybind11=$PYBIND_OK）——
+  说明 offline_packages/conda_pkgs 与当前 INSTALL.sh 版本不配套：请用最新 U 盘整体重新覆盖"
 fi
 if [ -d "$OFFLINE_DIR/nvdiffrast-src" ]; then
   "$PYTHON" -m pip install --no-build-isolation "$OFFLINE_DIR/nvdiffrast-src" \

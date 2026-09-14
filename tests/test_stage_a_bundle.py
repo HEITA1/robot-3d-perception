@@ -68,9 +68,10 @@ def test_install_handles_conda_tos_and_offline():
     assert "nvcc_pkgs" in text and "tar -xjf" in text  # offline nvcc via conda pkg extraction
     assert "cuda_runtime.h" in text  # cudart-dev header guard
     assert '"$PYTHON" -m pip install' in text  # no reliance on env pip script
-    # incident #6 prevention (full review): compiler gate + mycpp build chain
-    assert "libeigen3-dev" in text and "libboost-system-dev" in text  # one-line apt fix
+    # full-review fixes: conda toolchain shipped offline (3090 has NO network —
+    # apt route retired), mycpp compiled via Ninja, compiler gate checks prefix
     assert "mycpp" in text and "-G Ninja" in text  # estimater's cluster_poses needs mycpp
+    assert "x86_64-conda-linux-gnu-gcc" in text  # conda toolchain exported as CC/CXX
     ps1 = (BUNDLE / "RUN_ON_WINDOWS.ps1").read_text(encoding="utf-8")
     assert "Miniconda3-latest-Linux-x86_64.sh" in ps1  # offline installer support
     assert 'FP_REPO_ROOT="' in ps1  # install passes the FP location (install/smoke consistency)
