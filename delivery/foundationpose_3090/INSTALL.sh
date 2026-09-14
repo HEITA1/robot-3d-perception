@@ -63,19 +63,16 @@ else
 fi
 
 echo "[3b/7] nvcc 工具链（编译 pytorch3d/nvdiffrast + nvdiffrast 运行期 JIT 必需）"
-if [ ${#PIP_OFFLINE[@]} -gt 0 ]; then
-  SITE="$($PYTHON -c "import sysconfig; print(sysconfig.get_paths()['purelib'])")"
-  [ -x "$SITE/nvidia/cuda_nvcc/bin/nvcc" ] || die "离线包缺少 nvcc wheel（nvidia-cuda-nvcc-cu12）"
-  export CUDA_HOME="$SITE/.cuda_home_merged"
-  mkdir -p "$CUDA_HOME/bin" "$CUDA_HOME/include"
-  ln -sf "$SITE/nvidia/cuda_nvcc/bin/"* "$CUDA_HOME/bin/" || die "nvcc 链接失败"
-  [ -d "$SITE/nvidia/cuda_nvcc/nvvm" ] && ln -sfn "$SITE/nvidia/cuda_nvcc/nvvm" "$CUDA_HOME/nvvm"
-  for inc in "$SITE/nvidia/cuda_nvcc/include" "$SITE/nvidia/cuda_runtime/include" "$SITE/nvidia/cuda_cccl/include"; do
-    [ -d "$inc" ] && cp -rn "$inc/." "$CUDA_HOME/include/" 2>/dev/null || true
+if compgen -G "$OFFLINE_DIR/conda_pkgs/nvcc_pkgs/cuda-nvcc-*.tar.bz2" > /dev/null; then
+  echo "  离线模式：conda nvcc 包直接解入 $CONDA_PREFIX（nvcc 12.4.131 + cudart 12.4.127 头文件）"
+  for p in "$OFFLINE_DIR"/conda_pkgs/nvcc_pkgs/*.tar.bz2; do
+    tar -xjf "$p" -C "$CONDA_PREFIX" || die "nvcc conda 包解包失败: $p"
   done
+  export CUDA_HOME="$CONDA_PREFIX"
   export PATH="$CUDA_HOME/bin:$PATH"
-  nvcc --version | tail -1 || die "pip-wheel nvcc 不可执行"
-  echo "  CUDA_HOME(pip wheels) = $CUDA_HOME"
+  hash -r
+  nvcc --version | tail -1 || die "解包后 nvcc 不可执行"
+  [ -f "$CUDA_HOME/include/cuda_runtime.h" ] || die "cuda_runtime.h 缺失（cudart-dev 未解入？）"
 elif [ -n "${WSL_DISTRO_NAME:-}" ]; then
   echo "  WSL2 + 在线：conda 安装最小工具链（cuda-nvcc 12.4）"
   conda install -y -c nvidia cuda-nvcc=12.4 cuda-cudart-dev=12.4 \

@@ -58,7 +58,8 @@ def test_install_handles_conda_tos_and_offline():
     assert "offline_packages" in text
     assert "--no-index --find-links" in text
     assert "--offline" in text  # conda_pkgs offline path
-    assert "nvidia/cuda_nvcc/bin/nvcc" in text  # pip-wheel nvcc CUDA_HOME merge
+    assert "nvcc_pkgs" in text and "tar -xjf" in text  # offline nvcc via conda pkg extraction
+    assert "cuda_runtime.h" in text  # cudart-dev header guard
     ps1 = (BUNDLE / "RUN_ON_WINDOWS.ps1").read_text(encoding="utf-8")
     assert "Miniconda3-latest-Linux-x86_64.sh" in ps1  # offline installer support
 
