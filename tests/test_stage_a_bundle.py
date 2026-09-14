@@ -49,22 +49,20 @@ def test_locked_execution_script_states_lock():
 
 
 def test_install_handles_conda_tos_and_offline():
-    """Two 3090-field fixes locked by tests: (1) new conda's ToS gate
-    (E:\\rizhi.txt incident) must be accepted with a conda-forge fallback;
-    (2) offline_packages/ must trigger --no-index wheel installs."""
+    """Locked-in fixes from three 3090 field incidents:
+    #1 new conda's ToS gate (online fallback keeps the accept + conda-forge
+    fallback); #2 ToS also blocks --offline; #3 channel drift made packaged
+    closures unsolvable — final design extracts packages directly into the
+    env prefix (no solver) and bootstraps pip via ensurepip."""
     text = (BUNDLE / "INSTALL.sh").read_text(encoding="utf-8")
-    assert "conda tos accept" in text, "conda ToS gate fix missing"
+    assert "extract_conda_pkgs.py" in text, "offline extraction path missing"
+    assert "ensurepip" in text, "pip bootstrap missing"
+    assert "conda tos accept" in text, "online-fallback ToS fix missing"
     assert "conda-forge --override-channels" in text
-    # ToS gate blocks BOTH online and --offline create (3090 field incident #2):
-    # the accept must appear BEFORE the actual offline create command, with the
-    # env-var fallback.
-    assert text.index("conda tos accept") < text.index('python=3.11 -y --offline')
-    assert "CONDA_PLUGINS_AUTO_ACCEPT_TOS=yes" in text
-    assert "offline_packages" in text
     assert "--no-index --find-links" in text
-    assert "--offline" in text  # conda_pkgs offline path
     assert "nvcc_pkgs" in text and "tar -xjf" in text  # offline nvcc via conda pkg extraction
     assert "cuda_runtime.h" in text  # cudart-dev header guard
+    assert '"$PYTHON" -m pip install' in text  # no reliance on env pip script
     ps1 = (BUNDLE / "RUN_ON_WINDOWS.ps1").read_text(encoding="utf-8")
     assert "Miniconda3-latest-Linux-x86_64.sh" in ps1  # offline installer support
 
