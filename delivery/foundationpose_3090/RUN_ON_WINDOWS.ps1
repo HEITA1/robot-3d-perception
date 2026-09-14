@@ -83,9 +83,19 @@ switch ($Step) {
   "install" {
     Test-Prerequisites
     & wsl bash -lc "grep -qi ubuntu /etc/os-release || { echo 'Default WSL distro is not Ubuntu; run first: wsl --install -d Ubuntu'; exit 1; }"
-    Invoke-WslStep ('test -d ~/miniconda3 || (wget -q https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /tmp/miniconda.sh && bash /tmp/miniconda.sh -b -p ~/miniconda3) && echo "miniconda OK"') "miniconda-in-wsl"
+    # 离线优先：U 盘 offline_packages 里有 miniconda 安装器就直接用（3090 网络不稳）
+    $miniLocal = Join-Path $RepoRoot "offline_packages\Miniconda3-latest-Linux-x86_64.sh"
+    if (Test-Path $miniLocal) {
+      $miniWsl = Convert-ToWslPath $miniLocal
+      $miniCmd = 'bash "' + $miniWsl + '" -b -p ~/miniconda3'
+      Write-Host "miniconda: 离线安装器 $miniLocal"
+    } else {
+      $miniCmd = 'wget -q https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /tmp/miniconda.sh && bash /tmp/miniconda.sh -b -p ~/miniconda3'
+      Write-Host "miniconda: 在线下载（未找到离线安装器）"
+    }
+    Invoke-WslStep ('test -d ~/miniconda3 || (' + $miniCmd + ') && echo "miniconda OK"') "miniconda-in-wsl"
     $cmd = (Get-CondaSource) + ' && cd "' + (Get-LinuxRepo) + '" && USE_DOCKER=0 bash delivery/foundationpose_3090/INSTALL.sh'
-    Invoke-WslStep $cmd "INSTALL（创建 r3p-fp env + torch cu124 + WSL nvcc + 官方依赖编译）"
+    Invoke-WslStep $cmd "INSTALL（创建 r3p-fp env + torch cu124 + nvcc + 官方依赖；离线包存在时自动离线）"
     Write-Host "install 完成 —— 下一步: check_env（下载 checkpoints 前部分项 FAIL 属预期）"
   }
   "check_env" {

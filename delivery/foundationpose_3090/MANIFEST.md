@@ -16,7 +16,9 @@
 | `COLLECT_RESULTS.sh` | 汇集 `delivery_back/`（结果 + SHA256；不含环境/数据/权重） | 3090 机器 |
 | `configs/fp_exp013.yaml` | 冻结协议（与 `configs/fp_exp013.yaml` 逐字节一致，sha256 e51b9c45016d…） | 两端 |
 | `expected_outputs/README.md` | 各步骤应产出什么 | 3090（人读） |
+| `expected_outputs/checkpoints_README.md` | 官方权重下载指引（Google Drive 链接 + 放置结构；⏳ 本网络被墙 PENDING） | 有 Google 网络的环境 |
 | `patches/README.md` | 说明：FP 核心不打补丁；接线在仓库 `src/r3p/foundationpose/runtime.py` | — |
+| `<repo>/offline_packages/`（随 U 盘携带，gitignored） | 离线安装包：miniconda 安装器 / conda_pkgs（linux-64 python 3.11 依赖 30 包）/ wheels_cu124（torch 2.6.0+cu124 全栈 + requirements 闭环 + nvcc/cmake/ninja wheels）/ fp_repo + commit / pytorch3d-src + nvdiffrast-src / checkpoints（⏳ PENDING） | `INSTALL.sh` 自动探测，存在即全离线 |
 
 ## 磁盘占用（3090 机器）
 

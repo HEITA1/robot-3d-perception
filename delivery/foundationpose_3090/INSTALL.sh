@@ -1,17 +1,27 @@
 #!/usr/bin/env bash
-# INSTALL — 在 3090 上创建 FoundationPose 执行环境（Stage A bundle）。
-# 原则：safe-fail。任何编译失败 = 停止并给出原因；**禁止自动尝试其他版本**。
+# INSTALL — 在 3090 机器上创建 FoundationPose 执行环境（Stage A bundle）。
+# 双模式：repo 旁存在 offline_packages/ 时自动全离线安装（网络不稳机器的预设）；
+# 否则在线安装。安全失败：任何一步失败即停；禁止自动尝试其他版本。
 # 不触碰任何名为 r3p 的既有 conda 环境。
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 ENV_NAME="${R3P_FP_ENV:-r3p-fp}"
 FP_REPO_ROOT="${FP_REPO_ROOT:-$HOME/FoundationPose}"
+OFFLINE_DIR="${R3P_FP_OFFLINE:-$REPO_ROOT/offline_packages}"
 die() { echo "[INSTALL][FATAL] $*" >&2; exit 1; }
 
+PIP_OFFLINE=()
+if [ -d "$OFFLINE_DIR/wheels_cu124" ] && compgen -G "$OFFLINE_DIR/wheels_cu124/*.whl" > /dev/null; then
+  PIP_OFFLINE=(--no-index --find-links "$OFFLINE_DIR/wheels_cu124")
+  echo "离线模式: wheels = $OFFLINE_DIR/wheels_cu124"
+fi
+HAVE_OFFLINE_FP=0
+[ -f "$OFFLINE_DIR/fp_repo/estimater.py" ] && HAVE_OFFLINE_FP=1
+
 echo "[1/7] OS check"
-[ "$(uname -s)" = "Linux" ] || die "仅支持 Linux（3090 Ubuntu）。当前：$(uname -s)"
-command -v conda >/dev/null || die "conda 不在 PATH（先安装 miniconda/anaconda）"
+[ "$(uname -s)" = "Linux" ] || die "仅支持 Linux / WSL2（3090 Windows 路线在 WSL 内运行本脚本）。当前：$(uname -s)"
+command -v conda >/dev/null || die "conda 不在 PATH（WSL 内先装 miniconda，见 RUN_ON_WINDOWS.ps1 install）"
 
 echo "[2/7] 创建 conda env: $ENV_NAME (python=3.11)"
 if conda env list | grep -qE "^r3p( |$)"; then
@@ -20,7 +30,20 @@ fi
 if conda env list | grep -qE "^${ENV_NAME}( |$)"; then
   echo "  env '$ENV_NAME' 已存在——跳过创建（如需重建请手动删除后重跑）。"
 else
-  conda create -n "$ENV_NAME" python=3.11 -y || die "conda create 失败"
+  # 新版 conda（>=24.x）非交互模式要求先接受默认频道 ToS（3090 实测踩坑）
+  conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main >/dev/null 2>&1 || true
+  conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r >/dev/null 2>&1 || true
+  if compgen -G "$OFFLINE_DIR/conda_pkgs/*.conda" > /dev/null; then
+    echo "  离线模式: 预下 conda 包注入 pkgs 缓存后 --offline 创建"
+    mkdir -p ~/miniconda3/pkgs
+    cp "$OFFLINE_DIR"/conda_pkgs/*.conda ~/miniconda3/pkgs/ || die "conda 包注入失败"
+    conda create -n "$ENV_NAME" python=3.11 -y --offline \
+      || die "离线 conda create 失败——确认 WSL 发行版 glibc >= 2.17（Ubuntu 20.04+）"
+  else
+    conda create -n "$ENV_NAME" python=3.11 -y \
+      || conda create -n "$ENV_NAME" python=3.11 -y -c conda-forge --override-channels \
+      || die "conda create 失败（ToS 已尝试接受；conda-forge 兜底也失败——检查网络/磁盘）"
+  fi
 fi
 CONDA_BASE="$(conda info --base)"
 # shellcheck disable=SC1091
@@ -29,38 +52,88 @@ conda activate "$ENV_NAME"
 PYTHON="$(command -v python)"
 echo "  python: $($PYTHON --version)"
 
-echo "[3/7] PyTorch CUDA 构建（官方建议 cu124 index；单一来源，不做版本搜索）"
-if [ -n "${WSL_DISTRO_NAME:-}" ]; then
-  echo "  WSL2 检测到（$WSL_DISTRO_NAME）：先装最小 CUDA 构建工具链（conda nvcc；"
-  echo "  编译 pytorch3d/nvdiffrast 与 nvdiffrast 运行期 JIT 都依赖它；WSL 无系统 CUDA toolkit）"
+echo "[3/7] PyTorch CUDA 构建（cu124；单一来源，不做版本搜索）"
+if [ ${#PIP_OFFLINE[@]} -gt 0 ]; then
+  pip install "${PIP_OFFLINE[@]}" torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0 \
+    || die "离线 torch 安装失败——wheels_cu124 不完整？"
+else
+  $PYTHON -c "import torch" 2>/dev/null || \
+    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124 \
+    || die "torch 安装失败——检查 driver/CUDA（nvidia-smi），不要换版本重试"
+fi
+
+echo "[3b/7] nvcc 工具链（编译 pytorch3d/nvdiffrast + nvdiffrast 运行期 JIT 必需）"
+if [ ${#PIP_OFFLINE[@]} -gt 0 ]; then
+  SITE="$($PYTHON -c "import sysconfig; print(sysconfig.get_paths()['purelib'])")"
+  [ -x "$SITE/nvidia/cuda_nvcc/bin/nvcc" ] || die "离线包缺少 nvcc wheel（nvidia-cuda-nvcc-cu12）"
+  export CUDA_HOME="$SITE/.cuda_home_merged"
+  mkdir -p "$CUDA_HOME/bin" "$CUDA_HOME/include"
+  ln -sf "$SITE/nvidia/cuda_nvcc/bin/"* "$CUDA_HOME/bin/" || die "nvcc 链接失败"
+  [ -d "$SITE/nvidia/cuda_nvcc/nvvm" ] && ln -sfn "$SITE/nvidia/cuda_nvcc/nvvm" "$CUDA_HOME/nvvm"
+  for inc in "$SITE/nvidia/cuda_nvcc/include" "$SITE/nvidia/cuda_runtime/include" "$SITE/nvidia/cuda_cccl/include"; do
+    [ -d "$inc" ] && cp -rn "$inc/." "$CUDA_HOME/include/" 2>/dev/null || true
+  done
+  export PATH="$CUDA_HOME/bin:$PATH"
+  nvcc --version | tail -1 || die "pip-wheel nvcc 不可执行"
+  echo "  CUDA_HOME(pip wheels) = $CUDA_HOME"
+elif [ -n "${WSL_DISTRO_NAME:-}" ]; then
+  echo "  WSL2 + 在线：conda 安装最小工具链（cuda-nvcc 12.4）"
   conda install -y -c nvidia cuda-nvcc=12.4 cuda-cudart-dev=12.4 \
     || die "conda 安装 cuda-nvcc 失败（磁盘/网络）；不要换版本乱试"
   export CUDA_HOME="$CONDA_PREFIX"
+else
+  echo "  原生 Linux：使用系统 nvcc（CHECK_ENV 会验证）"
 fi
-$PYTHON -c "import torch" 2>/dev/null || \
-  pip install torch --index-url https://download.pytorch.org/whl/cu124 \
-  || die "torch 安装失败——检查 driver/CUDA（nvidia-smi），不要换版本重试"
 
 echo "[4/7] 官方 FoundationPose checkout"
 if [ ! -f "$FP_REPO_ROOT/estimater.py" ]; then
-  git clone https://github.com/NVlabs/FoundationPose.git "$FP_REPO_ROOT" \
-    || die "官方仓库克隆失败（网络/认证）"
+  if [ "$HAVE_OFFLINE_FP" = "1" ]; then
+    mkdir -p "$FP_REPO_ROOT"
+    cp -r "$OFFLINE_DIR/fp_repo/." "$FP_REPO_ROOT/" || die "离线 fp_repo 拷贝失败"
+    echo "  离线 fp_repo 已就位"
+  else
+    git clone https://github.com/NVlabs/FoundationPose.git "$FP_REPO_ROOT" \
+      || die "官方仓库克隆失败（网络/认证）"
+  fi
+else
+  echo "  $FP_REPO_ROOT 已有 checkout——跳过（保留其 weights/）"
 fi
 mkdir -p "$REPO_ROOT/outputs"
-git -C "$FP_REPO_ROOT" rev-parse HEAD | tee "$REPO_ROOT/outputs/fp_commit.txt"
-echo "  commit 已记录（写入 outputs/fp_commit.txt；manifest 将引用该值）"
-
-echo "[5/7] 官方 requirements"
-pip install -r "$FP_REPO_ROOT/requirements.txt" || die "官方 requirements 安装失败——按报错处理，禁止乱试版本"
-
-echo "[6/7] 编译型组件（nvdiffrast/pytorch3d/mycpp）"
-if [ -f "$FP_REPO_ROOT/build_all_conda.sh" ]; then
-  (cd "$FP_REPO_ROOT" && bash build_all_conda.sh) || die "官方 build_all_conda.sh 失败——检查 gcc/CUDA_HOME 匹配（ENVIRONMENT.md 风险表），不要自动换版本"
+if [ -f "$OFFLINE_DIR/fp_repo_commit.txt" ]; then
+  cp "$OFFLINE_DIR/fp_repo_commit.txt" "$REPO_ROOT/outputs/fp_commit.txt"
 else
-  echo "  checkout 中无 build_all_conda.sh——按官方 README 手动编译 nvdiffrast/pytorch3d 后重跑 CHECK_ENV.sh 验证"
+  git -C "$FP_REPO_ROOT" rev-parse HEAD | tee "$REPO_ROOT/outputs/fp_commit.txt"
+fi
+echo "  commit: $(cat "$REPO_ROOT/outputs/fp_commit.txt")"
+
+echo "[5/7] 官方 requirements + 构建工具（cmake/ninja 经 wheel）"
+if [ -f "$FP_REPO_ROOT/requirements.txt" ]; then
+  pip install "${PIP_OFFLINE[@]}" -r "$FP_REPO_ROOT/requirements.txt" \
+    || die "官方 requirements 安装失败——离线包缺件？按报错补 download，禁止乱试版本"
+fi
+if [ ${#PIP_OFFLINE[@]} -gt 0 ]; then
+  pip install "${PIP_OFFLINE[@]}" cmake ninja || die "cmake/ninja wheel 安装失败"
 fi
 
-echo "[7/7] 安装本项目（r3p，含 adapter/runner/evaluator）"
-(cd "$REPO_ROOT" && pip install -e ".[dev]") || die "项目安装失败"
+echo "[6/7] GPU 扩展编译（nvdiffrast / pytorch3d）"
+if [ -d "$OFFLINE_DIR/nvdiffrast-src" ]; then
+  pip install --no-build-isolation "$OFFLINE_DIR/nvdiffrast-src" \
+    || die "nvdiffrast 安装失败（需 nvcc+gcc；WSL 下确认 apt build-essential 已装）"
+elif [ -f "$FP_REPO_ROOT/build_all_conda.sh" ]; then
+  (cd "$FP_REPO_ROOT" && bash build_all_conda.sh) || die "官方 build_all_conda.sh 失败——检查 gcc/CUDA_HOME 匹配"
+else
+  pip install --no-build-isolation git+https://github.com/NVlabs/nvdiffrast.git \
+    || die "nvdiffrast 安装失败"
+fi
+if [ -d "$OFFLINE_DIR/pytorch3d-src" ]; then
+  echo "  编译 pytorch3d（源码编译，CPU 编译约 30–60 分钟，耐心等待；失败会停）"
+  MAX_JOBS=4 pip install --no-build-isolation "$OFFLINE_DIR/pytorch3d-src" \
+    || die "pytorch3d 编译失败（需 nvcc+gcc+CUDA_HOME 匹配；不要换版本乱试）"
+else
+  echo "  跳过 pytorch3d 离线源（未随包）——若 smoke 因缺 pytorch3d 失败，需补装"
+fi
 
-echo "== INSTALL 完成。执行最终验证：bash delivery/foundationpose_3090/CHECK_ENV.sh =="
+echo "[7/7] 安装本项目（r3p adapter/runner/evaluator；运行时依赖已由 requirements 覆盖）"
+(cd "$REPO_ROOT" && pip install "${PIP_OFFLINE[@]}" --no-deps -e .) || die "项目安装失败"
+
+echo "== INSTALL 完成。最终验证：bash delivery/foundationpose_3090/CHECK_ENV.sh =="

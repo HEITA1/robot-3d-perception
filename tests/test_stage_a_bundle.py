@@ -48,6 +48,31 @@ def test_locked_execution_script_states_lock():
     assert "CONFIRM_EXP013=YES" in text
 
 
+def test_install_handles_conda_tos_and_offline():
+    """Two 3090-field fixes locked by tests: (1) new conda's ToS gate
+    (E:\\rizhi.txt incident) must be accepted with a conda-forge fallback;
+    (2) offline_packages/ must trigger --no-index wheel installs."""
+    text = (BUNDLE / "INSTALL.sh").read_text(encoding="utf-8")
+    assert "conda tos accept" in text, "conda ToS gate fix missing"
+    assert "conda-forge --override-channels" in text
+    assert "offline_packages" in text
+    assert "--no-index --find-links" in text
+    assert "--offline" in text  # conda_pkgs offline path
+    assert "nvidia/cuda_nvcc/bin/nvcc" in text  # pip-wheel nvcc CUDA_HOME merge
+    ps1 = (BUNDLE / "RUN_ON_WINDOWS.ps1").read_text(encoding="utf-8")
+    assert "Miniconda3-latest-Linux-x86_64.sh" in ps1  # offline installer support
+
+
+def test_offline_package_manifest_present():
+    """offline_packages contents are carried by USB (gitignored) — the docs
+    must describe them and the weights must be marked pending."""
+    windows = (BUNDLE / "WINDOWS.md").read_text(encoding="utf-8")
+    assert "offline_packages/" in windows
+    ckpt = (BUNDLE / "expected_outputs" / "checkpoints_README.md").read_text(encoding="utf-8")
+    assert "1DFezOAD0oD1BblsXVxqDsl8fj0qzB82i" in ckpt  # official Google Drive folder id
+    assert "PENDING" in ckpt
+
+
 def test_docker_isolation_is_default_path():
     """Shared 3090 (Linux): every GPU-side script defaults to docker re-exec
     (USE_DOCKER=1) with the official base image wired in the Dockerfile —

@@ -44,3 +44,5 @@ Thumbs.db
 
 # --- ZCode workspace internals ---
 .zcode/
+# Stage offline package (carried to 3090 by USB; never committed)
+offline_packages/

@@ -30,12 +30,32 @@ Windows（3090 机器的 Windows 系统）
 | WSL2 Ubuntu 发行版（VHDX） | 1–2 GB |
 | conda env `r3p-fp`（torch cu124 安装后含自带 CUDA 库） | 6–8 GB |
 | conda nvcc 12.4 最小工具链（编译 + nvdiffrast 运行期 JIT） | 1–2 GB |
-| checkpoints（refiner + scorer） | 1–2 GB |
+| checkpoints（refiner + scorer） | 1–2 GB | ⏳ PENDING——本网络 Google Drive 被墙，需在有网环境下载后放入 `offline_packages/checkpoints/` |
 | 本仓库 + 最小数据 + 输出 | < 0.3 GB |
-| **合计** | **≈ 10–15 GB（典型 ~12 GB）** |
+| **合计** | **≈ 10–15 GB（典型 ~12 GB）**，其中离线安装包已由 U 盘携带 |
 
 第一步 `doctor` 会检查所在盘可用空间（建议 ≥25GB）；空间不足时把 WSL 发行版
 迁移到大盘（`wsl --export` / `wsl --import`，或安装时指定位置）。
+
+## 离线模式（3090 网络不稳的预设方案）
+
+仓库旁的 `offline_packages/` 目录被 `INSTALL.sh` / `RUN_ON_WINDOWS.ps1` 自动探测——
+存在即全离线安装（`--no-index --find-links`），宿主机零下载：
+
+```text
+offline_packages/
+├── Miniconda3-latest-Linux-x86_64.sh   # 198MB（repo.anaconda.com 官方）
+├── conda_pkgs/                          # 30 个 linux-64 包（python 3.11 env，61MB；离线 conda create）
+├── wheels_cu124/                        # torch 2.6.0+cu124 全栈 + requirements 闭环 + nvcc/cmake/ninja wheels（~4GB+）
+├── fp_repo/ + fp_repo_commit.txt        # 官方 NVlabs/FoundationPose checkout（commit 已钉死记录）
+├── pytorch3d-src/  nvdiffrast-src/      # 官方源码 tarball（离线编译）
+└── checkpoints/                         # ⏳ PENDING——Google Drive 本网络被墙，见 checkpoints_README.md
+```
+
+仍需网络的两小处（已尽量压缩）：① `wsl --install Ubuntu`（首次，系统级）；
+② WSL 内 gcc（pytorch3d/nvdiffrast 编译必需）——若 `CHECK_ENV` 报 gcc FAIL：
+在任一可联网时刻 `sudo apt install build-essential`，或把 `lsb_release -a` 输出发回
+补打离线 .deb 包。权重是最大待办（见 checkpoints/README.md）。
 
 ## 前置条件
 
