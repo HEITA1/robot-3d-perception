@@ -55,6 +55,10 @@ def test_install_handles_conda_tos_and_offline():
     text = (BUNDLE / "INSTALL.sh").read_text(encoding="utf-8")
     assert "conda tos accept" in text, "conda ToS gate fix missing"
     assert "conda-forge --override-channels" in text
+    # ToS gate blocks BOTH online and --offline create (3090 field incident #2):
+    # the accept must appear BEFORE the offline branch, with the env-var fallback.
+    assert text.index("conda tos accept") < text.index("--offline")
+    assert "CONDA_PLUGINS_AUTO_ACCEPT_TOS=yes" in text
     assert "offline_packages" in text
     assert "--no-index --find-links" in text
     assert "--offline" in text  # conda_pkgs offline path

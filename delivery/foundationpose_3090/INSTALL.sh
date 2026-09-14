@@ -30,9 +30,11 @@ fi
 if conda env list | grep -qE "^${ENV_NAME}( |$)"; then
   echo "  env '$ENV_NAME' 已存在——跳过创建（如需重建请手动删除后重跑）。"
 else
-  # 新版 conda（>=24.x）非交互模式要求先接受默认频道 ToS（3090 实测踩坑）
+  # ToS 门控（3090 实测两次踩坑：在线与 --offline create 都会被拦）——必须先接受；
+  # accept 本地写记录，失败不阻断；CONDA_PLUGINS_AUTO_ACCEPT_TOS 做无网兜底。
   conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main >/dev/null 2>&1 || true
   conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r >/dev/null 2>&1 || true
+  export CONDA_PLUGINS_AUTO_ACCEPT_TOS=yes
   if compgen -G "$OFFLINE_DIR/conda_pkgs/*.conda" > /dev/null; then
     echo "  离线模式: 预下 conda 包注入 pkgs 缓存后 --offline 创建"
     mkdir -p ~/miniconda3/pkgs
