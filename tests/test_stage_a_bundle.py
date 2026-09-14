@@ -73,6 +73,8 @@ def test_windows_route_bundle():
         assert f'"{step}"' in ps1, f"ps1 missing step {step}"
     assert "USE_DOCKER=0" in ps1
     assert "CONFIRM_EXP013" in ps1  # exp013 stays double-gated on Windows too
+    assert "$PSScriptRoot" in ps1  # repo root auto-detected from the script location
+    assert "E:\\robot-3d-perception" in (BUNDLE / "WINDOWS.md").read_text(encoding="utf-8")
 
 
 @pytest.mark.skipif(not BASH_AVAILABLE, reason="bash not available")

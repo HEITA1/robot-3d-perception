@@ -16,8 +16,22 @@ param(
 )
 $ErrorActionPreference = "Stop"
 
-if (-not $RepoRoot) { $RepoRoot = Join-Path $HOME "robot-3d-perception" }
-if (-not $FpRepo) { $FpRepo = Join-Path $HOME "FoundationPose" }
+# RepoRoot 默认 = 本脚本所在位置上溯两级（Bundle 在 <repo>/delivery/foundationpose_3090/ 内），
+# 因此仓库放任何盘（如 E:\robot-3d-perception）都零参数可用；找不到时退回 $HOME\robot-3d-perception。
+if (-not $RepoRoot) {
+  $here = $PSScriptRoot
+  if ($here -and (Test-Path (Join-Path $here "..\..\delivery"))) {
+    $RepoRoot = (Resolve-Path (Join-Path $here "..\..")).Path
+  } else {
+    $RepoRoot = Join-Path $HOME "robot-3d-perception"
+  }
+}
+# FpRepo / weights 默认 = 仓库所在盘根下的 FoundationPose\（匹配"整个目录放 E 盘"的部署）；
+# 需要放别处时用 -FpRepo / -CheckpointDir 覆盖。
+if (-not $FpRepo) {
+  $driveRoot = ([System.IO.DriveInfo]::new($RepoRoot)).Name
+  $FpRepo = Join-Path $driveRoot "FoundationPose"
+}
 if (-not $CheckpointDir) { $CheckpointDir = Join-Path $FpRepo "weights" }
 $Bundle = Join-Path $RepoRoot "delivery\foundationpose_3090"
 
@@ -55,8 +69,11 @@ switch ($Step) {
     Write-Host "== Windows 侧 =="
     & nvidia-smi | Select-Object -First 10
     $drive = ([System.IO.DriveInfo]::new($RepoRoot)).AvailableFreeSpace / 1GB
-    Write-Host ("磁盘可用空间（{0}: 所在盘，WSL VHDX 将落在这里）: {1:N1} GB" -f $RepoRoot.Substring(0, 1), $drive)
-    if ($drive -lt 25) { Write-Warning "可用空间 < 25GB——本路线预估需 10–15GB，建议清理后再继续" }
+    $wslDrive = ([System.IO.DriveInfo]::new($env:SystemDrive + "\")).AvailableFreeSpace / 1GB
+    Write-Host ("磁盘可用空间（仓库所在盘 {0}:）: {1:N1} GB" -f $RepoRoot.Substring(0, 1), $drive)
+    Write-Host ("磁盘可用空间（系统盘 {0}:，WSL VHDX 默认落这里）: {1:N1} GB" -f $env:SystemDrive.Substring(0, 1), $wslDrive)
+    if ($drive -lt 25) { Write-Warning "仓库所在盘可用空间 < 25GB——本路线预估需 10–15GB，建议清理后再继续" }
+    if ($wslDrive -lt 15) { Write-Warning "系统盘可用空间 < 15GB——WSL 发行版默认在系统盘；可迁移: wsl --manage Ubuntu --move <盘>:\WSL（较新 WSL 版本）" }
     Write-Host "== WSL 侧 =="
     & wsl -l -v
     & wsl bash -lc "nvidia-smi | head -12; echo; echo 'WSL CUDA 直通 OK'"

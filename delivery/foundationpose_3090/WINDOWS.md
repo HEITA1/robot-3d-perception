@@ -44,13 +44,16 @@ Windows（3090 机器的 Windows 系统）
 
 ## 执行顺序（PowerShell，逐行复制；说明在行尾 # 后）
 
+> 部署假设：整个仓库放在 **`E:\robot-3d-perception`**（其他盘/路径同样可用——
+> `RUN_ON_WINDOWS.ps1` 会自动定位仓库根，FP checkout 默认落在仓库同盘 `E:\FoundationPose`）。
+
 ```powershell
-cd $HOME\robot-3d-perception                                                          # 1. 进入仓库根（U 盘整体拷到 Windows 用户目录）
+cd E:\robot-3d-perception                                                            # 1. 进入仓库根（U 盘的 robot-3d-perception 整体拷到 E 盘）
 wsl --install -d Ubuntu                                                              # 2. 仅首次：装 WSL2 Ubuntu（管理员；可能要求重启）
-powershell -ExecutionPolicy Bypass -File delivery\foundationpose_3090\RUN_ON_WINDOWS.ps1 doctor        # 3. 体检：驱动/WSL/CUDA 直通/磁盘空间
-git clone https://github.com/NVlabs/FoundationPose.git $HOME\FoundationPose          # 4. 克隆官方 FP（仅官方源）
+powershell -ExecutionPolicy Bypass -File delivery\foundationpose_3090\RUN_ON_WINDOWS.ps1 doctor        # 3. 体检：驱动/WSL/CUDA 直通/两个盘的可用空间
+git clone https://github.com/NVlabs/FoundationPose.git E:\FoundationPose             # 4. 克隆官方 FP（仅官方源；默认约定放仓库同盘根）
 powershell -ExecutionPolicy Bypass -File delivery\foundationpose_3090\RUN_ON_WINDOWS.ps1 install       # 5. WSL 内装 miniconda + r3p-fp 环境（含 conda nvcc；safe-fail）
-# 6. 下载官方 checkpoints（1-2GB，仅官方 Google Drive，⏳ 文件名见 DOWNLOAD_WEIGHTS.md；>=1GB 先报批）放到 $HOME\FoundationPose\weights\
+# 6. 下载官方 checkpoints（1-2GB，仅官方 Google Drive，⏳ 文件名见 DOWNLOAD_WEIGHTS.md；>=1GB 先报批）放到 E:\FoundationPose\weights\
 powershell -ExecutionPolicy Bypass -File delivery\foundationpose_3090\RUN_ON_WINDOWS.ps1 check_env     # 7. 环境复查（应全部 PASS）
 powershell -ExecutionPolicy Bypass -File delivery\foundationpose_3090\RUN_ON_WINDOWS.ps1 prepare_data  # 8. 数据完整性 + 单位守卫
 powershell -ExecutionPolicy Bypass -File delivery\foundationpose_3090\RUN_ON_WINDOWS.ps1 smoke         # 9. 单帧 smoke gate（frame 620）
@@ -58,6 +61,10 @@ powershell -ExecutionPolicy Bypass -File delivery\foundationpose_3090\RUN_ON_WIN
 powershell -ExecutionPolicy Bypass -File delivery\foundationpose_3090\RUN_ON_WINDOWS.ps1 exp013 -Unlock  # 11. EXP-013 正式 5 帧（Stage B，须 $env:CONFIRM_EXP013='YES'）
 powershell -ExecutionPolicy Bypass -File delivery\foundationpose_3090\RUN_ON_WINDOWS.ps1 collect       # 12. 汇集 delivery_back/ 拷回轻薄本
 ```
+
+> 空间提示：conda 环境在 WSL 发行版内，其 VHDX **默认落在系统盘 C:**——`doctor` 会同时
+> 报告仓库盘与系统盘的可用空间；系统盘紧张时可迁移发行版：
+> `wsl --manage Ubuntu --move E:\WSL`（较新 WSL 版本），或 `wsl --export` + `--import` 到 E 盘。
 
 ## 路线对照
 

@@ -31,15 +31,16 @@
 
 ## 2. 执行顺序（Windows 主路径；PowerShell 逐行复制，说明在行尾 # 后）
 
-完整版与前置条件见 `WINDOWS.md`；速查版：
+> 部署假设：仓库放 **`E:\robot-3d-perception`**（`RUN_ON_WINDOWS.ps1` 自动定位仓库根，
+> 放任何盘都零参数）。完整版与前置条件见 `WINDOWS.md`；速查版：
 
 ```powershell
-cd $HOME\robot-3d-perception                                                          # 1. 进入仓库根
+cd E:\robot-3d-perception                                                            # 1. 进入仓库根（U 盘整体拷到 E 盘）
 wsl --install -d Ubuntu                                                              # 2. 仅首次：装 WSL2 Ubuntu（管理员，可能重启）
-powershell -ExecutionPolicy Bypass -File delivery\foundationpose_3090\RUN_ON_WINDOWS.ps1 doctor        # 3. 体检（驱动/WSL/CUDA 直通/磁盘 ≥25GB）
-git clone https://github.com/NVlabs/FoundationPose.git $HOME\FoundationPose          # 4. 克隆官方 FP（仅官方源）
+powershell -ExecutionPolicy Bypass -File delivery\foundationpose_3090\RUN_ON_WINDOWS.ps1 doctor        # 3. 体检（驱动/WSL/CUDA 直通/磁盘空间）
+git clone https://github.com/NVlabs/FoundationPose.git E:\FoundationPose             # 4. 克隆官方 FP（仅官方源）
 powershell -ExecutionPolicy Bypass -File delivery\foundationpose_3090\RUN_ON_WINDOWS.ps1 install       # 5. WSL 内建 conda r3p-fp 环境（含 nvcc 工具链；safe-fail）
-# 6. 下载官方 checkpoints（1-2GB，仅官方 Google Drive）→ 放 $HOME\FoundationPose\weights\
+# 6. 下载官方 checkpoints（1-2GB，仅官方 Google Drive）→ 放 E:\FoundationPose\weights\
 powershell -ExecutionPolicy Bypass -File delivery\foundationpose_3090\RUN_ON_WINDOWS.ps1 check_env     # 7. 环境复查（应全 PASS）
 powershell -ExecutionPolicy Bypass -File delivery\foundationpose_3090\RUN_ON_WINDOWS.ps1 prepare_data  # 8. 数据完整性 + 米制单位守卫
 powershell -ExecutionPolicy Bypass -File delivery\foundationpose_3090\RUN_ON_WINDOWS.ps1 smoke         # 9. 单帧 smoke gate（frame 620，GPU）
