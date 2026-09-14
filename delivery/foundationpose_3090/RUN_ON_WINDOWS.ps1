@@ -94,9 +94,10 @@ switch ($Step) {
       Write-Host "miniconda: 在线下载（未找到离线安装器）"
     }
     Invoke-WslStep ('test -d ~/miniconda3 || (' + $miniCmd + ') && echo "miniconda OK"') "miniconda-in-wsl"
-    $cmd = (Get-CondaSource) + ' && cd "' + (Get-LinuxRepo) + '" && USE_DOCKER=0 bash delivery/foundationpose_3090/INSTALL.sh'
+    $cmd = (Get-CondaSource) + ' && cd "' + (Get-LinuxRepo) + '" && USE_DOCKER=0 FP_REPO_ROOT="' + (Get-LinuxFp) + '" FP_CHECKPOINT_DIR="' + (Get-LinuxCkpt) + '" bash delivery/foundationpose_3090/INSTALL.sh'
     Invoke-WslStep $cmd "INSTALL（创建 r3p-fp env + torch cu124 + nvcc + 官方依赖；离线包存在时自动离线）"
     # 官方权重自动就位：offline_packages\checkpoints\<时间戳>\ → <FpRepo>\weights\<时间戳>\
+    # （FP_REPO_ROOT 与 install 一致 = /mnt/e/FoundationPose，smoke 侧默认相同）
     $ckptSrc = Join-Path $RepoRoot "offline_packages\checkpoints"
     if (Test-Path $ckptSrc) {
       $weightsDir = Join-Path $FpRepo "weights"

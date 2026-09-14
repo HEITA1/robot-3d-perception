@@ -57,17 +57,23 @@ def test_install_handles_conda_tos_and_offline():
     text = (BUNDLE / "INSTALL.sh").read_text(encoding="utf-8")
     assert "extract_conda_pkgs.py" in text, "offline extraction path missing"
     assert "ensurepip" in text, "pip bootstrap missing"
-    # incident #5: bare `python` does not exist in WSL Ubuntu — a failed
-    # `command -v python` assignment silently kills the script under set -e.
-    assert 'command -v python3 || command -v python' in text
+    # incident #5: bare `python` does not exist in WSL Ubuntu (and system
+    # python3 has no pip) — BPY must be the miniconda base python, with an
+    # explicit existence check (silent set -e death otherwise).
+    assert 'BPY="$CONDA_BASE/bin/python"' in text
+    assert '[ -x "$BPY" ] || die' in text
     assert 'conda tos accept' in text, "online-fallback ToS fix missing"
     assert "conda-forge --override-channels" in text
     assert "--no-index --find-links" in text
     assert "nvcc_pkgs" in text and "tar -xjf" in text  # offline nvcc via conda pkg extraction
     assert "cuda_runtime.h" in text  # cudart-dev header guard
     assert '"$PYTHON" -m pip install' in text  # no reliance on env pip script
+    # incident #6 prevention (full review): compiler gate + mycpp build chain
+    assert "libeigen3-dev" in text and "libboost-system-dev" in text  # one-line apt fix
+    assert "mycpp" in text and "-G Ninja" in text  # estimater's cluster_poses needs mycpp
     ps1 = (BUNDLE / "RUN_ON_WINDOWS.ps1").read_text(encoding="utf-8")
     assert "Miniconda3-latest-Linux-x86_64.sh" in ps1  # offline installer support
+    assert 'FP_REPO_ROOT="' in ps1  # install passes the FP location (install/smoke consistency)
 
 
 def test_bundle_scripts_are_lf_only():

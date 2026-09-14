@@ -22,9 +22,15 @@ HAVE_OFFLINE_FP=0
 echo "[1/7] OS check"
 [ "$(uname -s)" = "Linux" ] || die "仅支持 Linux / WSL2（3090 Windows 路线在 WSL 内运行本脚本）。当前：$(uname -s)"
 command -v conda >/dev/null || die "conda 不在 PATH（WSL 内先装 miniconda，见 RUN_ON_WINDOWS.ps1 install）"
-
 CONDA_BASE="$(conda info --base)"
 ENV_PREFIX="$CONDA_BASE/envs/$ENV_NAME"
+
+# 编译工具链前置门（nvdiffrast 运行期 JIT + pytorch3d/mycpp 编译必需；cmake/ninja 由 wheels 提供）
+if ! command -v g++ >/dev/null 2>&1 || ! command -v gcc >/dev/null 2>&1; then
+  die "WSL 缺 gcc/g++（nvdiffrast JIT 与 pytorch3d/mycpp 编译必需）。一次性安装：
+  sudo apt update && sudo apt install -y build-essential libeigen3-dev libboost-system-dev libboost-program-options-dev
+  （需短暂网络；若无网络把 wsl bash -lc 'lsb_release -a' 输出发回，补离线 .deb 包）"
+fi
 
 echo "[2/7] 创建 env: $ENV_NAME (python 3.11)"
 if conda env list | grep -qE "^r3p( |$)"; then
@@ -35,8 +41,8 @@ if [ -x "$ENV_PREFIX/bin/python" ]; then
 elif compgen -G "$OFFLINE_DIR/conda_pkgs/*.conda" > /dev/null; then
   # 离线终案：绕开 solver/ToS/repodata——把闭包 conda 包直接解入 env 前缀
   # （3090 实测三连坑后的定案：在线 ToS 门控、--offline ToS 门控、频道漂移致闭包不自洽）
-  BPY="$(command -v python3 || command -v python)"   # WSL Ubuntu 只有 python3（incident #5：裸 python 缺失会让 set -e 静默退出）
-  [ -n "$BPY" ] || die "WSL 内找不到 python3/python——发行版异常，请发回 lsb_release -a 输出"
+  BPY="$CONDA_BASE/bin/python"   # miniconda base python（自带 pip；WSL 系统 python3 无 pip，incident #5）
+  [ -x "$BPY" ] || die "miniconda base python 不存在（$BPY）"
   "$BPY" -m pip install --no-index --find-links "$OFFLINE_DIR/wheels_cu124" zstandard \
     || die "base python 安装 zstandard 失败（wheels_cu124 缺 cp313 wheel？）"
   "$BPY" "$REPO_ROOT/delivery/foundationpose_3090/scripts/extract_conda_pkgs.py" \
@@ -120,7 +126,16 @@ if [ ${#PIP_OFFLINE[@]} -gt 0 ]; then
   "$PYTHON" -m pip install "${PIP_OFFLINE[@]}" cmake ninja || die "cmake/ninja wheel 安装失败"
 fi
 
-echo "[6/7] GPU 扩展编译（nvdiffrast / pytorch3d）"
+echo "[6/7] GPU 扩展编译（nvdiffrast / pytorch3d / mycpp）"
+# 编译依赖前置检查（mycpp 需要 Boost/Eigen 头文件——apt 一次性提供；放在 30-60 分钟
+# 的 pytorch3d 编译之前，缺了立刻报而不是白等一小时）
+BOOST_OK=$([ -f /usr/include/boost/version.hpp ] && echo 1 || echo 0)
+EIGEN_OK=$([ -d /usr/include/eigen3 ] || [ -d "$ENV_PREFIX/include/eigen3" ] && echo 1 || echo 0)
+if [ "$BOOST_OK" = "0" ] || [ "$EIGEN_OK" = "0" ]; then
+  die "mycpp 编译依赖缺失（boost=$BOOST_OK eigen3=$EIGEN_OK）。一次性安装：
+  sudo apt update && sudo apt install -y build-essential libeigen3-dev libboost-system-dev libboost-program-options-dev
+  （需短暂网络；若无网络把 wsl bash -lc 'lsb_release -a' 输出发回，补离线 .deb 包）"
+fi
 if [ -d "$OFFLINE_DIR/nvdiffrast-src" ]; then
   "$PYTHON" -m pip install --no-build-isolation "$OFFLINE_DIR/nvdiffrast-src" \
     || die "nvdiffrast 安装失败（需 nvcc+gcc；WSL 下确认 apt build-essential 已装）"
@@ -136,6 +151,22 @@ if [ -d "$OFFLINE_DIR/pytorch3d-src" ]; then
     || die "pytorch3d 编译失败（需 nvcc+gcc+CUDA_HOME 匹配；不要换版本乱试）"
 else
   echo "  跳过 pytorch3d 离线源（未随包）——若 smoke 因缺 pytorch3d 失败，需补装"
+fi
+
+echo "[6c/7] mycpp 编译（estimater 的 cluster_poses 必需；pybind11/Eigen 由离线 conda 包提供）"
+if [ ! -f "$ENV_PREFIX/mycpp_installed" ]; then
+  cmake -S "$FP_REPO_ROOT/mycpp" -B "$FP_REPO_ROOT/mycpp/build" -G Ninja \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DPython3_ROOT_DIR="$ENV_PREFIX" \
+      -DPYBIND11_PYTHON_EXECUTABLE="$ENV_PREFIX/bin/python" \
+      -DCMAKE_PREFIX_PATH="$ENV_PREFIX" \
+    || die "mycpp cmake 配置失败（需 gcc/g++/ninja/pybind11/Eigen/Boost——见上方前置检查）"
+  cmake --build "$FP_REPO_ROOT/mycpp/build" -j 4 \
+    || die "mycpp 编译失败（编译日志在上方；不要换版本乱试）"
+  touch "$ENV_PREFIX/mycpp_installed"
+  echo "  mycpp 编译完成"
+else
+  echo "  mycpp 已编译——跳过"
 fi
 
 echo "[7/7] 安装本项目（r3p adapter/runner/evaluator；运行时依赖已由 requirements 覆盖）"
