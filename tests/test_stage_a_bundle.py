@@ -57,7 +57,10 @@ def test_install_handles_conda_tos_and_offline():
     text = (BUNDLE / "INSTALL.sh").read_text(encoding="utf-8")
     assert "extract_conda_pkgs.py" in text, "offline extraction path missing"
     assert "ensurepip" in text, "pip bootstrap missing"
-    assert "conda tos accept" in text, "online-fallback ToS fix missing"
+    # incident #5: bare `python` does not exist in WSL Ubuntu — a failed
+    # `command -v python` assignment silently kills the script under set -e.
+    assert 'command -v python3 || command -v python' in text
+    assert 'conda tos accept' in text, "online-fallback ToS fix missing"
     assert "conda-forge --override-channels" in text
     assert "--no-index --find-links" in text
     assert "nvcc_pkgs" in text and "tar -xjf" in text  # offline nvcc via conda pkg extraction

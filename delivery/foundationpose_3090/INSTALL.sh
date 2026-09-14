@@ -35,7 +35,8 @@ if [ -x "$ENV_PREFIX/bin/python" ]; then
 elif compgen -G "$OFFLINE_DIR/conda_pkgs/*.conda" > /dev/null; then
   # 离线终案：绕开 solver/ToS/repodata——把闭包 conda 包直接解入 env 前缀
   # （3090 实测三连坑后的定案：在线 ToS 门控、--offline ToS 门控、频道漂移致闭包不自洽）
-  BPY="$(command -v python)"
+  BPY="$(command -v python3 || command -v python)"   # WSL Ubuntu 只有 python3（incident #5：裸 python 缺失会让 set -e 静默退出）
+  [ -n "$BPY" ] || die "WSL 内找不到 python3/python——发行版异常，请发回 lsb_release -a 输出"
   "$BPY" -m pip install --no-index --find-links "$OFFLINE_DIR/wheels_cu124" zstandard \
     || die "base python 安装 zstandard 失败（wheels_cu124 缺 cp313 wheel？）"
   "$BPY" "$REPO_ROOT/delivery/foundationpose_3090/scripts/extract_conda_pkgs.py" \
