@@ -30,6 +30,13 @@ PYTHON="$(command -v python)"
 echo "  python: $($PYTHON --version)"
 
 echo "[3/7] PyTorch CUDA 构建（官方建议 cu124 index；单一来源，不做版本搜索）"
+if [ -n "${WSL_DISTRO_NAME:-}" ]; then
+  echo "  WSL2 检测到（$WSL_DISTRO_NAME）：先装最小 CUDA 构建工具链（conda nvcc；"
+  echo "  编译 pytorch3d/nvdiffrast 与 nvdiffrast 运行期 JIT 都依赖它；WSL 无系统 CUDA toolkit）"
+  conda install -y -c nvidia cuda-nvcc=12.4 cuda-cudart-dev=12.4 \
+    || die "conda 安装 cuda-nvcc 失败（磁盘/网络）；不要换版本乱试"
+  export CUDA_HOME="$CONDA_PREFIX"
+fi
 $PYTHON -c "import torch" 2>/dev/null || \
   pip install torch --index-url https://download.pytorch.org/whl/cu124 \
   || die "torch 安装失败——检查 driver/CUDA（nvidia-smi），不要换版本重试"

@@ -6,8 +6,8 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-# Docker 隔离（默认）：re-exec 进容器（GPU/--gpus；FP 与权重经 /fp 挂载）
-if [ "${USE_DOCKER:-1}" = "1" ] && [ "${INSIDE_CONTAINER:-0}" != "1" ]; then
+# Docker 隔离：仅 Linux 宿主机；WSL2（Windows 路线）原生运行（CUDA 经 Windows driver 直通）
+if [ "${USE_DOCKER:-1}" = "1" ] && [ "${INSIDE_CONTAINER:-0}" != "1" ] && [ -z "${WSL_DISTRO_NAME:-}" ]; then
   IMAGE="${R3P_FP_IMAGE:-r3p-fp:exp013}"
   HOST_FP_ROOT="${FP_REPO_ROOT:-$HOME/FoundationPose}"
   HOST_CKPT="${FP_CHECKPOINT_DIR:-$HOST_FP_ROOT/weights}"

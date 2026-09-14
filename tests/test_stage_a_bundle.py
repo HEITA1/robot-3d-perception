@@ -23,7 +23,9 @@ BUNDLE = Path("delivery/foundationpose_3090")
 SCRIPTS = ("CHECK_ENV.sh", "INSTALL.sh", "PREPARE_DATA.sh", "RUN_SMOKE_TEST.sh",
            "RUN_EXP013.sh", "COLLECT_RESULTS.sh", "DOCKER_SETUP.sh")
 DOCS = ("README_3090.md", "MANIFEST.md", "ENVIRONMENT.md", "DATA_MANIFEST.md",
-        "DOWNLOAD_WEIGHTS.md", "DOCKER.md", "Dockerfile.r3p-fp")
+        "DOWNLOAD_WEIGHTS.md", "DOCKER.md", "Dockerfile.r3p-fp",
+        "WINDOWS.md", "RUN_ON_WINDOWS.ps1")
+GPU_SIDED_SCRIPTS = ("CHECK_ENV.sh", "PREPARE_DATA.sh", "RUN_SMOKE_TEST.sh", "RUN_EXP013.sh")
 
 
 def test_bundle_completeness():
@@ -47,15 +49,30 @@ def test_locked_execution_script_states_lock():
 
 
 def test_docker_isolation_is_default_path():
-    """Shared 3090: every GPU-side script must default to docker re-exec
-    (USE_DOCKER=1) with the official base image wired in the Dockerfile."""
-    for name in ("CHECK_ENV.sh", "PREPARE_DATA.sh", "RUN_SMOKE_TEST.sh", "RUN_EXP013.sh"):
+    """Shared 3090 (Linux): every GPU-side script defaults to docker re-exec
+    (USE_DOCKER=1) with the official base image wired in the Dockerfile —
+    except under WSL2, where the Windows route runs natively."""
+    for name in GPU_SIDED_SCRIPTS:
         text = (BUNDLE / name).read_text(encoding="utf-8")
         assert 'USE_DOCKER:-1' in text, f"{name} missing docker-default preamble"
         assert "INSIDE_CONTAINER" in text
+        assert 'WSL_DISTRO_NAME:-' in text, f"{name} must force native under WSL2 (Windows route)"
     dockerfile = (BUNDLE / "Dockerfile.r3p-fp").read_text(encoding="utf-8")
     assert "FROM wenbowen123/foundationpose:" in dockerfile
     assert "--no-deps" in dockerfile  # never touch the base image's torch/CUDA tree
+
+
+def test_windows_route_bundle():
+    """Windows/WSL2 is the primary path: bootstrap wrapper + route doc exist,
+    the wrapper stays native (USE_DOCKER=0) and gated for EXP-013."""
+    windows = (BUNDLE / "WINDOWS.md").read_text(encoding="utf-8")
+    assert "WSL2" in windows and "10–15 GB" in windows
+    assert "smoke gate" in windows.lower()
+    ps1 = (BUNDLE / "RUN_ON_WINDOWS.ps1").read_text(encoding="utf-8")
+    for step in ("doctor", "install", "check_env", "prepare_data", "smoke", "exp013", "collect"):
+        assert f'"{step}"' in ps1, f"ps1 missing step {step}"
+    assert "USE_DOCKER=0" in ps1
+    assert "CONFIRM_EXP013" in ps1  # exp013 stays double-gated on Windows too
 
 
 @pytest.mark.skipif(not BASH_AVAILABLE, reason="bash not available")

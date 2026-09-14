@@ -1,7 +1,9 @@
-# DOCKER — Docker 隔离执行路线（3090 共用机的首选方案）
+# DOCKER — Linux Docker 路线（**备选**；当前主路径 = WINDOWS.md 的 WSL2）
 
-> 决策背景：3090 为共用机，避免依赖冲突 → **默认走 Docker 隔离**（USE_DOCKER=1）。
-> conda 原生路线（`INSTALL.sh`，L1）保留为 fallback（USE_DOCKER=0），默认不使用。
+> 2026-09-13 降级说明：3090 机器 Linux 侧磁盘不足（Docker 基础镜像需 10–20GB），
+> 主路径改为 Windows + WSL2（`WINDOWS.md` / `RUN_ON_WINDOWS.ps1`）。本路线保留为
+> Linux 空间恢复后的备选；4 个 GPU 侧脚本仍支持 `USE_DOCKER=1`（Linux 宿主机上）。
+> 共用机隔离初衷（防依赖冲突）在 WSL2 路线下由 WSL 发行版的用户级隔离天然满足。
 
 ## 方案
 

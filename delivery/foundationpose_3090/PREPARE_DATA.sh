@@ -5,8 +5,8 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-# Docker 隔离（默认）：re-exec 进容器（数据通过 /work 挂载可见；本步骤纯 CPU）
-if [ "${USE_DOCKER:-1}" = "1" ] && [ "${INSIDE_CONTAINER:-0}" != "1" ]; then
+# Docker 隔离：仅 Linux 宿主机；WSL2（Windows 路线）原生运行（纯 CPU，无需容器）
+if [ "${USE_DOCKER:-1}" = "1" ] && [ "${INSIDE_CONTAINER:-0}" != "1" ] && [ -z "${WSL_DISTRO_NAME:-}" ]; then
   IMAGE="${R3P_FP_IMAGE:-r3p-fp:exp013}"
   exec docker run --rm -e INSIDE_CONTAINER=1 -v "$REPO_ROOT":/work -w /work \
     "$IMAGE" bash "delivery/foundationpose_3090/$(basename "${BASH_SOURCE[0]}")"
