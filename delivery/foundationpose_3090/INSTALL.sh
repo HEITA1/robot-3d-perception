@@ -73,6 +73,7 @@ fi
 
 echo "[3/7] PyTorch CUDA 构建（cu124；单一来源，不做版本搜索）"
 if [ ${#PIP_OFFLINE[@]} -gt 0 ]; then
+  echo "  正在离线安装 torch 全栈（约 3GB，本步骤无输出持续数分钟——不要中断）..."
   "$PYTHON" -m pip install "${PIP_OFFLINE[@]}" torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0 \
     || die "离线 torch 安装失败——wheels_cu124 不完整？"
 else
@@ -124,6 +125,7 @@ echo "  commit: $(cat "$REPO_ROOT/outputs/fp_commit.txt")"
 
 echo "[5/7] 官方 requirements + 构建工具（cmake/ninja 经 wheel）"
 if [ -f "$FP_REPO_ROOT/requirements.txt" ]; then
+  echo "  正在安装官方 requirements（数分钟无输出属正常）..."
   "$PYTHON" -m pip install --no-build-isolation "${PIP_OFFLINE[@]}" -r "$FP_REPO_ROOT/requirements.txt" \
     || die "官方 requirements 安装失败——离线包缺件？按报错补 download，禁止乱试版本"
 fi
