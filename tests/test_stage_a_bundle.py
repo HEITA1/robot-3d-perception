@@ -67,6 +67,15 @@ def test_install_handles_conda_tos_and_offline():
     assert "Miniconda3-latest-Linux-x86_64.sh" in ps1  # offline installer support
 
 
+def test_bundle_scripts_are_lf_only():
+    """CRLF breaks bash on Linux/WSL ('pipefail\\r: invalid option name' —
+    3090 field incident #4, introduced by a Windows text-mode rewrite). MSYS
+    bash -n tolerates CRLF, so this byte-level check is the reliable guard."""
+    for name in SCRIPTS:
+        data = (BUNDLE / name).read_bytes()
+        assert b"\r" not in data, f"{name} contains CR bytes (must be LF only)"
+
+
 def test_offline_package_manifest_present():
     """offline_packages contents are carried by USB (gitignored) — the docs
     must describe them and the weights must be present + hash-recorded."""
