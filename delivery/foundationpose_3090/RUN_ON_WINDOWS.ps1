@@ -96,6 +96,18 @@ switch ($Step) {
     Invoke-WslStep ('test -d ~/miniconda3 || (' + $miniCmd + ') && echo "miniconda OK"') "miniconda-in-wsl"
     $cmd = (Get-CondaSource) + ' && cd "' + (Get-LinuxRepo) + '" && USE_DOCKER=0 bash delivery/foundationpose_3090/INSTALL.sh'
     Invoke-WslStep $cmd "INSTALL（创建 r3p-fp env + torch cu124 + nvcc + 官方依赖；离线包存在时自动离线）"
+    # 官方权重自动就位：offline_packages\checkpoints\<时间戳>\ → <FpRepo>\weights\<时间戳>\
+    $ckptSrc = Join-Path $RepoRoot "offline_packages\checkpoints"
+    if (Test-Path $ckptSrc) {
+      $weightsDir = Join-Path $FpRepo "weights"
+      New-Item -ItemType Directory -Force -Path $weightsDir | Out-Null
+      Get-ChildItem $ckptSrc -Directory |
+        Where-Object { $_.Name -match '^\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}$' } |
+        ForEach-Object {
+          Copy-Item $_.FullName -Destination $weightsDir -Recurse -Force
+          Write-Host ("weights: {0} -> {1}" -f $_.Name, $weightsDir)
+        }
+    }
     Write-Host "install 完成 —— 下一步: check_env（下载 checkpoints 前部分项 FAIL 属预期）"
   }
   "check_env" {

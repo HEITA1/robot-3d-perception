@@ -66,12 +66,17 @@ def test_install_handles_conda_tos_and_offline():
 
 def test_offline_package_manifest_present():
     """offline_packages contents are carried by USB (gitignored) — the docs
-    must describe them and the weights must be marked pending."""
+    must describe them and the weights must be present + hash-recorded."""
     windows = (BUNDLE / "WINDOWS.md").read_text(encoding="utf-8")
     assert "offline_packages/" in windows
     ckpt = (BUNDLE / "expected_outputs" / "checkpoints_README.md").read_text(encoding="utf-8")
     assert "1DFezOAD0oD1BblsXVxqDsl8fj0qzB82i" in ckpt  # official Google Drive folder id
-    assert "PENDING" in ckpt
+    assert "已下载入包" in ckpt  # weights received (2026-09-14), no longer PENDING
+    sha_path = Path("offline_packages/checkpoints/checkpoints_sha256.txt")
+    if sha_path.is_file():  # on the USB copy
+        content = sha_path.read_text(encoding="utf-8")
+        assert "model_best.pth" in content  # both checkpoints hash-recorded
+        assert len(content.strip().splitlines()) >= 4
 
 
 def test_docker_isolation_is_default_path():
@@ -100,6 +105,7 @@ def test_windows_route_bundle():
     assert "USE_DOCKER=0" in ps1
     assert "CONFIRM_EXP013" in ps1  # exp013 stays double-gated on Windows too
     assert "$PSScriptRoot" in ps1  # repo root auto-detected from the script location
+    assert "offline_packages\\checkpoints" in ps1  # weights auto-placed during install
     assert "E:\\robot-3d-perception" in (BUNDLE / "WINDOWS.md").read_text(encoding="utf-8")
 
 
