@@ -138,7 +138,8 @@ echo "[6/7] GPU 扩展编译（nvdiffrast / pytorch3d / mycpp）"
 # 的 pytorch3d 编译之前，缺了立刻报而不是白等一小时）
 BOOST_OK=$([ -f "$ENV_PREFIX/include/boost/version.hpp" ] && echo 1 || echo 0)
 EIGEN_OK=$([ -d "$ENV_PREFIX/include/eigen3" ] && echo 1 || echo 0)
-PYBIND_OK=$([ -d "$ENV_PREFIX/share/cmake/pybind11" ] && echo 1 || echo 0)
+PYBIND11_DIR="$ENV_PREFIX/site-packages/pybind11/share/cmake/pybind11"
+PYBIND_OK=$([ -f "$PYBIND11_DIR/pybind11Config.cmake" ] && echo 1 || echo 0)
 if [ "$BOOST_OK" = "0" ] || [ "$EIGEN_OK" = "0" ] || [ "$PYBIND_OK" = "0" ]; then
   die "离线包缺件（boost=$BOOST_OK eigen3=$EIGEN_OK pybind11=$PYBIND_OK）——
   说明 offline_packages/conda_pkgs 与当前 INSTALL.sh 版本不配套：请用最新 U 盘整体重新覆盖"
@@ -167,6 +168,7 @@ if [ ! -f "$ENV_PREFIX/mycpp_installed" ]; then
       -DPython3_ROOT_DIR="$ENV_PREFIX" \
       -DPYBIND11_PYTHON_EXECUTABLE="$ENV_PREFIX/bin/python" \
       -DCMAKE_PREFIX_PATH="$ENV_PREFIX" \
+      -Dpybind11_DIR="$PYBIND11_DIR" \
     || die "mycpp cmake 配置失败（需 gcc/g++/ninja/pybind11/Eigen/Boost——见上方前置检查）"
   cmake --build "$FP_REPO_ROOT/mycpp/build" -j 4 \
     || die "mycpp 编译失败（编译日志在上方；不要换版本乱试）"

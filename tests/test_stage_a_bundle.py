@@ -71,6 +71,7 @@ def test_install_handles_conda_tos_and_offline():
     # full-review fixes: conda toolchain shipped offline (3090 has NO network —
     # apt route retired), mycpp compiled via Ninja, compiler gate checks prefix
     assert "mycpp" in text and "-G Ninja" in text  # estimater's cluster_poses needs mycpp
+    assert "pybind11_DIR" in text  # noarch pybind11 cmake config lives under site-packages
     assert "x86_64-conda-linux-gnu-gcc" in text  # conda toolchain exported as CC/CXX
     ps1 = (BUNDLE / "RUN_ON_WINDOWS.ps1").read_text(encoding="utf-8")
     assert "Miniconda3-latest-Linux-x86_64.sh" in ps1  # offline installer support
