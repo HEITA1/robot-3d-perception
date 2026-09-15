@@ -66,6 +66,13 @@ if [ -x "$ENV_PREFIX/bin/x86_64-conda-linux-gnu-gcc" ]; then
   export CC="$ENV_PREFIX/bin/x86_64-conda-linux-gnu-gcc"
   export CXX="$ENV_PREFIX/bin/x86_64-conda-linux-gnu-g++"
   export PATH="$ENV_PREFIX/bin:$PATH"
+  # nvidia wheels 自带头文件（cusparse.h/cublas_v2.h 等）接入编译搜索路径——
+  # pytorch3d 经 ATen/cuda 头引用它们（3090 实测：无 CPATH 时 cusparse.h 找不到）
+  NVINC="$($PYTHON -c "import glob, sysconfig; print(':'.join(sorted(glob.glob(sysconfig.get_paths()['purelib'] + '/nvidia/*/include'))))")"
+  if [ -n "$NVINC" ]; then
+    export CPATH="$NVINC"
+    echo "  CPATH (nvidia wheel headers) 已导出"
+  fi
   "$CC" --version | head -1
 elif ! command -v gcc >/dev/null 2>&1; then
   die "编译器缺失：离线工具链未解入且系统无 gcc——offline_packages/conda_pkgs 不完整"
