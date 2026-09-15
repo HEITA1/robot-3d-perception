@@ -101,6 +101,14 @@ if compgen -G "$OFFLINE_DIR/conda_pkgs/nvcc_pkgs/cuda-nvcc-*.tar.bz2" > /dev/nul
   hash -r
   nvcc --version | tail -1 || die "解包后 nvcc 不可执行"
   [ -f "$CUDA_HOME/include/cuda_runtime.h" ] || die "cuda_runtime.h 缺失（cudart-dev 未解入？）"
+  # nv/target 头：cuda_fp16.h 的依赖（官方 CCCL v2.4.0 的自包含 shim，零依赖）
+  # ——3090 实测：cudart-dev 只带 cuda_fp16.h 不带 nv/target，pytorch3d 编译因此失败
+  if [ -d "$OFFLINE_DIR/nv_target_include/nv" ]; then
+    mkdir -p "$CONDA_PREFIX/include"
+    cp -r "$OFFLINE_DIR/nv_target_include/nv" "$CONDA_PREFIX/include/" || die "nv/target 复制失败"
+    [ -f "$CONDA_PREFIX/include/nv/target" ] || die "nv/target 缺失"
+    echo "  nv/target 头已就位（$CONDA_PREFIX/include/nv/target）"
+  fi
 elif [ -n "${WSL_DISTRO_NAME:-}" ]; then
   echo "  WSL2 + 在线：conda 安装最小工具链（cuda-nvcc 12.4）"
   conda install -y -c nvidia cuda-nvcc=12.4 cuda-cudart-dev=12.4 \

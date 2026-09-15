@@ -67,6 +67,7 @@ def test_install_handles_conda_tos_and_offline():
     assert "--no-index --find-links" in text
     assert "nvcc_pkgs" in text and "tar -xjf" in text  # offline nvcc via conda pkg extraction
     assert "cuda_runtime.h" in text  # cudart-dev header guard
+    assert "nv_target_include" in text  # nv/target header (cuda_fp16.h dep) shipped offline
     assert '"$PYTHON" -m pip install' in text  # no reliance on env pip script
     # incident #7/#8: partial torch install (crashed wheel) was masked by pip's
     # "already satisfied" — INSTALL must health-check torch._C and force-reinstall
