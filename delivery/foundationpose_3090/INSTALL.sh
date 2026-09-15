@@ -101,13 +101,17 @@ if compgen -G "$OFFLINE_DIR/conda_pkgs/nvcc_pkgs/cuda-nvcc-*.tar.bz2" > /dev/nul
   hash -r
   nvcc --version | tail -1 || die "解包后 nvcc 不可执行"
   [ -f "$CUDA_HOME/include/cuda_runtime.h" ] || die "cuda_runtime.h 缺失（cudart-dev 未解入？）"
-  # nv/target 头：cuda_fp16.h 的依赖（官方 CCCL v2.4.0 的自包含 shim，零依赖）
-  # ——3090 实测：cudart-dev 只带 cuda_fp16.h 不带 nv/target，pytorch3d 编译因此失败
-  if [ -d "$OFFLINE_DIR/nv_target_include/nv" ]; then
+  # CCCL 头文件（nv/target + thrust + cub + cuda）：torch 的 c10/complex.h→thrust、
+  # cuda_fp16.h→nv/target 依赖它们；官方 CCCL v2.4.0 的头文件树，零依赖
+  # ——3090 实测：cudart-dev/nvcc 不含这些，pytorch3d 编译因此失败
+  if [ -d "$OFFLINE_DIR/cccl_include/nv" ]; then
     mkdir -p "$CONDA_PREFIX/include"
-    cp -r "$OFFLINE_DIR/nv_target_include/nv" "$CONDA_PREFIX/include/" || die "nv/target 复制失败"
+    for d in nv cuda thrust cub; do
+      cp -r "$OFFLINE_DIR/cccl_include/$d" "$CONDA_PREFIX/include/" || die "cccl/$d 复制失败"
+    done
     [ -f "$CONDA_PREFIX/include/nv/target" ] || die "nv/target 缺失"
-    echo "  nv/target 头已就位（$CONDA_PREFIX/include/nv/target）"
+    [ -f "$CONDA_PREFIX/include/thrust/complex.h" ] || die "thrust/complex.h 缺失"
+    echo "  CCCL 头文件已就位（nv/cuda/thrust/cub → $CONDA_PREFIX/include/）"
   fi
 elif [ -n "${WSL_DISTRO_NAME:-}" ]; then
   echo "  WSL2 + 在线：conda 安装最小工具链（cuda-nvcc 12.4）"
