@@ -175,7 +175,9 @@ else
 fi
 if [ -d "$OFFLINE_DIR/pytorch3d-src" ]; then
   echo "  编译 pytorch3d（源码编译，CPU 编译约 30–60 分钟，耐心等待；失败会停）"
-  MAX_JOBS=4 "$PYTHON" -m pip install --no-build-isolation "$OFFLINE_DIR/pytorch3d-src" \
+  # --no-index + find-links：iopath 等 pytorch3d 依赖全部来自离线 wheels（3090 不联网）
+  MAX_JOBS=4 "$PYTHON" -m pip install --no-build-isolation --no-index \
+      --find-links "$OFFLINE_DIR/wheels_cu124" "$OFFLINE_DIR/pytorch3d-src" \
     || die "pytorch3d 编译失败（需 nvcc+gcc+CUDA_HOME 匹配；不要换版本乱试）"
 else
   echo "  跳过 pytorch3d 离线源（未随包）——若 smoke 因缺 pytorch3d 失败，需补装"
