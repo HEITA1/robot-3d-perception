@@ -80,7 +80,7 @@ if "$PYTHON" -c "import torch, torch._C" >/dev/null 2>&1; then
 elif [ ${#PIP_OFFLINE[@]} -gt 0 ]; then
   echo "  torch 缺失或不完整——离线强制重装（约 3GB，无输出数分钟——不要中断）..."
   "$PYTHON" -m pip install "${PIP_OFFLINE[@]}" \
-      --force-reinstall --no-deps torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0 \
+      --force-reinstall torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0 \
     || die "torch 强制重装失败——wheels_cu124 不完整？"
   "$PYTHON" -c "import torch, torch._C; print('  torch', torch.__version__, '| cuda:', torch.cuda.is_available())" \
     || die "重装后 import torch / torch._C 仍失败——torch 安装再次不完整，发回日志"

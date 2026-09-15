@@ -68,9 +68,13 @@ def test_install_handles_conda_tos_and_offline():
     assert "nvcc_pkgs" in text and "tar -xjf" in text  # offline nvcc via conda pkg extraction
     assert "cuda_runtime.h" in text  # cudart-dev header guard
     assert '"$PYTHON" -m pip install' in text  # no reliance on env pip script
-    # incident #7: partial torch install (crashed wheel) was masked by pip's
-    # "already satisfied" — INSTALL must health-check torch._C and force-reinstall.
-    assert "import torch, torch._C" in text and "--force-reinstall --no-deps" in text
+    # incident #7/#8: partial torch install (crashed wheel) was masked by pip's
+    # "already satisfied" — INSTALL must health-check torch._C and force-reinstall
+    # WITH dependencies (incident #8: --no-deps skipped typing_extensions etc.,
+    # all of which ARE in the offline wheels).
+    assert "import torch, torch._C" in text
+    assert "--force-reinstall torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0" in text
+    assert "--force-reinstall --no-deps" not in text
     # full-review fixes: conda toolchain shipped offline (3090 has NO network —
     # apt route retired), mycpp compiled via Ninja, compiler gate checks prefix
     assert "mycpp" in text and "-G Ninja" in text  # estimater's cluster_poses needs mycpp
