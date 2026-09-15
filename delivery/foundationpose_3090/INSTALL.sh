@@ -144,9 +144,15 @@ if [ "$BOOST_OK" = "0" ] || [ "$EIGEN_OK" = "0" ] || [ "$PYBIND_OK" = "0" ]; the
   die "离线包缺件（boost=$BOOST_OK eigen3=$EIGEN_OK pybind11=$PYBIND_OK）——
   说明 offline_packages/conda_pkgs 与当前 INSTALL.sh 版本不配套：请用最新 U 盘整体重新覆盖"
 fi
-if [ -d "$OFFLINE_DIR/nvdiffrast-src" ]; then
-  "$PYTHON" -m pip install --no-build-isolation "$OFFLINE_DIR/nvdiffrast-src" \
-    || die "nvdiffrast 安装失败（需 nvcc+gcc；WSL 下确认 apt build-essential 已装）"
+if [ -d "$OFFLINE_DIR/nvdiffrast-src/nvdiffrast" ]; then
+  # JIT 模式安装：直接把 python 包复制进 site-packages（绕开 setup.py 在元数据阶段的
+  # 试编译检查——其失败原因被 pip 吞掉无法远程诊断）。CUDA 部分在 smoke 首次渲染时
+  # JIT 编译（届时 nvcc/gcc 齐备且日志完整可见）。
+  SITE="$($PYTHON -c "import sysconfig; print(sysconfig.get_paths()['purelib'])")"
+  rm -rf "$SITE/nvdiffrast"
+  cp -r "$OFFLINE_DIR/nvdiffrast-src/nvdiffrast" "$SITE/nvdiffrast" || die "nvdiffrast 复制失败"
+  "$PYTHON" -c "import nvdiffrast; print('nvdiffrast (JIT mode):', nvdiffrast.__file__)" \
+    || die "nvdiffrast 复制后 import 失败"
 elif [ -f "$FP_REPO_ROOT/build_all_conda.sh" ]; then
   (cd "$FP_REPO_ROOT" && bash build_all_conda.sh) || die "官方 build_all_conda.sh 失败——检查 gcc/CUDA_HOME 匹配"
 else

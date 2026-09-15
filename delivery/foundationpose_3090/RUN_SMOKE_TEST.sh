@@ -21,6 +21,14 @@ FP_REPO_ROOT="${FP_REPO_ROOT:-/fp/FoundationPose}"
 FP_CHECKPOINT_DIR="${FP_CHECKPOINT_DIR:-/fp/weights}"
 export FP_REPO_ROOT FP_CHECKPOINT_DIR
 PYTHON="${R3P_FP_PYTHON:-python}"
+# nvdiffrast 运行期 JIT 的编译器环境（独立 shell 会话，需在此重新导出）
+if [ -x "$CONDA_PREFIX/bin/x86_64-conda-linux-gnu-gcc" ]; then
+  export CC="$CONDA_PREFIX/bin/x86_64-conda-linux-gnu-gcc"
+  export CXX="$CONDA_PREFIX/bin/x86_64-conda-linux-gnu-g++"
+fi
+if [ -x "$CONDA_PREFIX/bin/nvcc" ]; then
+  export CUDA_HOME="$CONDA_PREFIX"
+fi
 
 echo "[1/2] 环境门控（必须全 PASS——smoke 不接受降级）"
 "$PYTHON" scripts/foundationpose_env_check.py --config configs/fp_exp013.yaml \
