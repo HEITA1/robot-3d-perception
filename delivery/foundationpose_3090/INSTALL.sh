@@ -72,10 +72,18 @@ elif ! command -v gcc >/dev/null 2>&1; then
 fi
 
 echo "[3/7] PyTorch CUDA 构建（cu124；单一来源，不做版本搜索）"
-if [ ${#PIP_OFFLINE[@]} -gt 0 ]; then
-  echo "  正在离线安装 torch 全栈（约 3GB，本步骤无输出持续数分钟——不要中断）..."
-  "$PYTHON" -m pip install "${PIP_OFFLINE[@]}" torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0 \
-    || die "离线 torch 安装失败——wheels_cu124 不完整？"
+# 完整性健康检查：torch._C 是 torch 的核心编译模块——它的缺失说明存在崩溃残留的
+# 部分安装（3090 实测：损坏 wheel 使 pip 在 torch 解包中途崩溃，元数据却已写入，
+# 之后 pip 一直 "already satisfied" 跳过重装）。此时强制从好 wheel 重装。
+if "$PYTHON" -c "import torch, torch._C" >/dev/null 2>&1; then
+  echo "  torch 已安装且完整——跳过"
+elif [ ${#PIP_OFFLINE[@]} -gt 0 ]; then
+  echo "  torch 缺失或不完整——离线强制重装（约 3GB，无输出数分钟——不要中断）..."
+  "$PYTHON" -m pip install "${PIP_OFFLINE[@]}" \
+      --force-reinstall --no-deps torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0 \
+    || die "torch 强制重装失败——wheels_cu124 不完整？"
+  "$PYTHON" -c "import torch, torch._C; print('  torch', torch.__version__, '| cuda:', torch.cuda.is_available())" \
+    || die "重装后 import torch / torch._C 仍失败——torch 安装再次不完整，发回日志"
 else
   $PYTHON -c "import torch" 2>/dev/null || \
     "$PYTHON" -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124 \
