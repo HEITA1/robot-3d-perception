@@ -151,6 +151,12 @@ if [ -d "$OFFLINE_DIR/nvdiffrast-src/nvdiffrast" ]; then
   SITE="$($PYTHON -c "import sysconfig; print(sysconfig.get_paths()['purelib'])")"
   rm -rf "$SITE/nvdiffrast"
   cp -r "$OFFLINE_DIR/nvdiffrast-src/nvdiffrast" "$SITE/nvdiffrast" || die "nvdiffrast 复制失败"
+  # nvdiffrast/__init__.py 用 importlib.metadata 查询自身版本——裸复制没有元数据会
+  # PackageNotFoundError，补一个最小 dist-info（已在笔记本验证该机制）
+  DIST="$SITE/nvdiffrast-0.0.0.dist-info"
+  mkdir -p "$DIST"
+  printf 'Metadata-Version: 2.1\nName: nvdiffrast\nVersion: 0.0.0\n' > "$DIST/METADATA"
+  printf 'pip\n' > "$DIST/INSTALLER"
   "$PYTHON" -c "import nvdiffrast; print('nvdiffrast (JIT mode):', nvdiffrast.__file__)" \
     || die "nvdiffrast 复制后 import 失败"
 elif [ -f "$FP_REPO_ROOT/build_all_conda.sh" ]; then
