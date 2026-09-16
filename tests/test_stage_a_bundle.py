@@ -79,6 +79,7 @@ def test_install_handles_conda_tos_and_offline():
     # full-review fixes: conda toolchain shipped offline (3090 has NO network —
     # apt route retired), mycpp compiled via Ninja, compiler gate checks prefix
     assert "mycpp" in text and "-G Ninja" in text  # estimater's cluster_poses needs mycpp
+    assert "ln -sf x86_64-conda-linux-gnu-gcc" in text  # bare gcc/g++ symlinks (env_check + JIT look them up by bare name)
     assert "CPATH" in text  # nvidia wheel headers (cusparse.h etc.) fed to gcc/nvcc
     assert "pybind11_DIR" in text  # noarch pybind11 cmake config lives under site-packages
     assert "x86_64-conda-linux-gnu-gcc" in text  # conda toolchain exported as CC/CXX

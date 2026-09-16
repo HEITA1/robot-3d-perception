@@ -66,6 +66,9 @@ if [ -x "$ENV_PREFIX/bin/x86_64-conda-linux-gnu-gcc" ]; then
   export CC="$ENV_PREFIX/bin/x86_64-conda-linux-gnu-gcc"
   export CXX="$ENV_PREFIX/bin/x86_64-conda-linux-gnu-g++"
   export PATH="$ENV_PREFIX/bin:$PATH"
+  # 裸名 gcc/g++ 链接（check_env 与 nvdiffrast JIT 按裸名查找；conda 包只带全名二进制）
+  ln -sf x86_64-conda-linux-gnu-gcc "$ENV_PREFIX/bin/gcc"
+  ln -sf x86_64-conda-linux-gnu-g++ "$ENV_PREFIX/bin/g++"
   # nvidia wheels 自带头文件（cusparse.h/cublas_v2.h 等）接入编译搜索路径——
   # pytorch3d 经 ATen/cuda 头引用它们（3090 实测：无 CPATH 时 cusparse.h 找不到）
   NVINC="$($PYTHON -c "import glob, sysconfig; print(':'.join(sorted(glob.glob(sysconfig.get_paths()['purelib'] + '/nvidia/*/include'))))")"
