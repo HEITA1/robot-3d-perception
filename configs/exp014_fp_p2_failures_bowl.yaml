@@ -1,0 +1,40 @@
+# EXP-014: FP on P2's known bowl failure frames (Phase 5 complementary evidence).
+# P2 classical (EXP-006) failed on 17 frames: 16 icp_no_converge + 1 hypothesis_selection_failure.
+# Question: does FoundationPose succeed where P2's ICP diverges?
+# Same frozen protocol as EXP-013: oracle mask_visib, register path, GT-free inference.
+
+experiment_id: EXP-014
+dir_alias: fp_p2_failures_bowl
+method: FoundationPose
+mode: register
+backend: foundationpose
+
+object_id: 13
+object_name: 024_bowl
+scene_id: 53
+frame_ids: [479, 513, 519, 533, 539, 542, 552, 579, 602, 604, 610, 628, 647, 677, 686, 687, 716]
+
+mask_source: bop_gt_mask_visib
+initialization_mode: none
+gt_pose_usage: evaluation_only
+
+data:
+  root: data/ycbv
+  depth_scale: 0.1
+  mesh: models/obj_000013.ply
+
+success:
+  metric: adds
+  diameter_mm: 161.922
+  threshold_mm: 16.19
+
+foundationpose:
+  repo: https://github.com/NVlabs/FoundationPose
+  repo_commit: a1b694b83e633c2cb6115b9063d940a687759392
+  checkpoint_dir: /mnt/e/FoundationPose/weights
+
+environment: offline_wsl2_conda
+
+output:
+  root: outputs/phase4_foundationpose
+  name: fp_p2_failures_bowl
