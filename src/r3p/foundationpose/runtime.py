@@ -76,14 +76,12 @@ class FoundationPoseRuntime:
         sys.path.insert(0, str(self.fp_repo_root))
         try:
             import estimater  # type: ignore # noqa: PLC0415 — official checkout
-            import helper  # type: ignore # noqa: PLC0415 — official checkout
         except Exception as exc:  # noqa: BLE001
             raise FoundationPoseRuntimeUnavailable(
                 f"failed to import the official FoundationPose checkout at "
                 f"{self.fp_repo_root}: {exc!r} (GPU/driver/nvdiffrast problem — "
                 "run CHECK_ENV.sh; do NOT fall back to CPU or mock)"
             ) from exc
-        self._helper = helper
 
         mesh_path = self._mesh_path_mm
         import trimesh  # type: ignore # noqa: PLC0415 — FoundationPose dependency
