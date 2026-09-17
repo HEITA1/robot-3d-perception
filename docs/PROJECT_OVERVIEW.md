@@ -16,7 +16,7 @@ route decisions made by experimental evidence rather than by model count.
 flowchart LR
     A["BOP YCB-V subset<br/>RGB-D · oracle mask · GT · CAD"] --> B["Classical baseline<br/>PCA/OBB + ICP"]
     A --> C["Learning route<br/>(closed, fully diagnosed)"]
-    A --> D["FoundationPose<br/>(EXP-013, pending GPU)"]
+    A --> D["FoundationPose<br/>(EXP-013 executed: 5/5, median ADD 2.64mm)"]
     B --> E["Shared evaluation<br/>ADD · ADD-S · trans · rot"]
     C --> E
     D --> E
@@ -46,7 +46,7 @@ flowchart LR
 | Classical + ICP | bottle | ADD < 0.1d | 70/75 = 93.3% | median 1.30 mm | EXP-006 |
 | Classical + ICP | bowl | ADD-S < 0.1d | 58/75 = 77.3% | median 2.67 mm | EXP-006 |
 | Self-developed learning | — | — | route closed | real 0/10; fixed-rotation recovery 10/10 | EXP-008/009 |
-| FoundationPose | — | — | **pending GPU** | — | EXP-013 (registered) |
+| FoundationPose | — | — | **5/5 = 100%** | — | EXP-013 |
 
 Conditions: BOP YCB-V `test_bop19` subset, oracle `mask_visib`, frozen thresholds
 (ADD / ADD-S < 0.1 × diameter), meters, shared metric implementation.
@@ -61,8 +61,8 @@ Conditions: BOP YCB-V `test_bop19` subset, oracle `mask_visib`, frozen threshold
 
 ## Current Phase & Next Step
 
-Phase 4 (FoundationPose): local integration complete; EXP-013 runs on the GPU machine
-once available. Then Phase 5: robustness and failure analysis across all baselines.
+Phase 4 (FoundationPose): **EXP-013 executed** (5/5, median ADD 2.64mm) — see Key
+Results. Next: Phase 5 robustness and failure analysis across all baselines.
 
 ## If You Only Have 3 Minutes
 

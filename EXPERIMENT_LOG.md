@@ -25,7 +25,7 @@
 | EXP-010 | P3.1-E 输入敏感性（几何通路归因） | 本文件 |
 | EXP-011 | P3.1-F 几何分布审计（两 regime） | 本文件 |
 | EXP-012 | P3.1-G depth noise sanity（1mm 不支持，训练前停止） | 本文件 |
-| EXP-013 | FoundationPose feasibility（obj5×5 帧） | **已注册，runtime 待 3090**；目录别名 `fp_exp004_feasibility`（Phase 4 命名惯例，见 `configs/fp_exp013.yaml`） |
+| EXP-013 | FoundationPose feasibility（obj5×5 帧） | **已执行：5/5 成功，ADD 中位 2.64mm**（2026-09-17，RTX 4090）；记录见本文件末尾 + `outputs/phase4_foundationpose/delivery_back/` |
 | EXP-014 | W2-3 跨物体统一 baseline（7 物体集，5 新物体 ×10 帧） | 本文件 + `outputs/w2_3/`；registry `configs/evaluation_objects.yaml` |
 | EXP-015 | W2-4 扩评测（5 新物体全 scene ×75 帧）+ **baseline freeze** | 本文件 + `outputs/w2_4/`；冻结记录见 `docs/BASELINE_OPERATING_ENVELOPE.md` §6 |
 
@@ -755,3 +755,32 @@ Gate 3 逐层定位 → `docs/P3_0_GATE3_DEBUG.md`（D1–D6）。
      **停止继续扩大 benchmark**（不跑 21 物体、不加场景、不加帧、不调参）；
   3. registry eval_source 更新为 EXP-015（5 新物体的冻结数字来源）；
   4. 后续强基线对照 = FoundationPose（EXP-013，待 3090）；鲁棒性 = Phase 5（另行授权）。
+
+
+---
+
+## EXP-013 — FoundationPose feasibility（obj5×5 帧，冻结协议）
+
+- **日期**：2026-09-17 ｜ **机器**：RTX 4090（24GB，WSL2 + conda 离线工具链，全部离线部署）
+- **Question**：FoundationPose（官方 NVlabs 实现，model-based register 路径）在冻结协议下于 obj5 场景 50 的 5 个既定帧上表现如何？能否作为强基线入列？
+- **Hypothesis**：环境离线部署成功后，register 应在全部 5 帧达到 ADD < 0.1d（19.65mm）。
+- **Setup**：官方 NVlabs/FoundationPose（commit `a1b694b`），register 路径（无初始位姿、GT 零参与推理）、oracle `mask_visib`、米制、`debug=0`；帧 620/653/721/1044/1113；指标 ADD/ADD-S（trans/rot 由保存的预测位姿离线补算）。runtime：`r3p.foundationpose.runtime`（conda gcc 13.4 + nvcc 12.4.131 现场编译的 `_nvdiffrast_c` AOT 扩展 + JIT 渲染插件）。环境：19/19 组件 PASS（详见 `delivery_back/env_manifest.txt`）。
+- **Result**（manifest：`outputs/phase4_foundationpose/delivery_back/exp013_fp_exp004_feasibility/`）：
+
+| 帧 | ADD | ADD-S | trans* | rot* | 判定 | runtime |
+| --- | ---: | ---: | ---: | ---: | --- | ---: |
+| 620 | 2.446 | 1.406 | 2.26 | 1.44 | ✅ | 11.7s（首帧含初始化） |
+| 653 | 1.829 | 1.267 | 1.78 | 1.43 | ✅ | 0.9s |
+| 721 | 2.712 | 1.613 | 2.53 | 1.50 | ✅ | 0.9s |
+| 1044 | 3.882 | 2.081 | 3.61 | 2.08 | ✅ | 0.9s |
+| 1113 | 2.644 | 1.714 | 2.25 | 2.04 | ✅ | 0.9s |
+
+  （*trans/rot 为运行后由保存的预测位姿离线补算，`trans_rot_computed.json` 存档；单位 mm/deg。ADD 中位 **2.644mm**，5/5 全部 < 19.65mm。）
+
+- **Analysis**：
+  1. FP 在 obj5 的 5 帧上 **5/5 全成功**，与 P2 Classical 同帧成绩持平（P2 亦 5/5）；
+  2. 精度对照（同帧 ADD 中位）：P2 **1.03mm** < FP **2.64mm**——在这 5 个 P2 优势帧上 Classical 更准；
+  3. FP 的差异化价值：零训练、泛化到任意物体（P2 需要逐物体几何调参、在 roll 歧义/遮挡/ bowl 上有成体系的失败模式）——完整优劣对比在 Phase 5 扩对象实验展开；
+  4. 单帧 register 稳态 0.9s（4090），具备跑全量帧与 Phase 5 扰动矩阵的算力基础。
+- **Decision**：FoundationPose 强基线正式入列（EXP-013 冻结协议）；Phase 5 按 PROJECT_SPEC 展开扩对象/扰动对比（FP vs P2 Classical），验证"Classical 精确但脆弱、FP 零训练但泛化"的完整故事。
+- **归档**：`delivery_back/`（manifest + 5 overlay + smoke_test + env_manifest + fp_commit + SHA256SUMS + trans_rot_computed.json）。

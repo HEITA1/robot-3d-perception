@@ -60,5 +60,5 @@
 | PnP / RANSAC（`pose/sift_pnp.py` 内，cv2.solvePnPRansac） | 2D-3D 位姿求解（P2.0 路线，已证伪并关闭） | [x]（路线关闭） |
 | ICP（`pose/geo_init.py::icp_refine`，Open3D point-to-plane） | 点云配准 / 位姿精化（P2 Classical 基线核心） | [x] |
 | RGB/点云编码器 + 融合 + 位姿头（计划 `models/`） | 学习基线 | [ ] Phase 3 |
-| FoundationPose 集成（`src/r3p/foundationpose/` + scripts） | adapter/schema/单位断言/mock backend/evaluator/EXP-013 runner/env checker；runtime 接线待 3090 | [x]（runtime ⏳） |
+| FoundationPose 集成（`src/r3p/foundationpose/` + scripts） | adapter/schema/单位断言/mock backend/evaluator/EXP-013 runner/env checker；runtime 已接线并实证（EXP-013：5/5，中位 ADD 2.64mm）| [x] |
 | 遮挡/深度噪声模拟（计划 `robustness/`） | 鲁棒性实验 | [ ] Phase 5 |

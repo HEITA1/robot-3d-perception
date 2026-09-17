@@ -32,7 +32,7 @@
 | Classical init（PCA/OBB，obj13 bowl，判据 ADD-S）           | 140.6 / 149.1     | 68.9 / 73.8        | —（仅初值）  |
 | **Classical + ICP（obj13 bowl，判据 ADD-S<0.1d）**          | 90.2 / 2.67（ADD-S median） | 10.3 / 2.67 | **58/75 = 77.3%** |
 | Learning Baseline（Phase 3）                                 |                   |                    |              |
-| FoundationPose（Phase 4）                                    |                   |                    |              |
+| **FoundationPose（Phase 4，obj5×5 帧冻结协议）**             | 2.64 / 1.71（中位） | —                  | **5/5 = 100%** |
 | Ours（Phase 5）                                              |                   |                    |              |
 
 注：bowl 的 ADD 高值是旋转对称性的必然结果（判据为 ADD-S）；失败模式：bottle 5 帧 roll 歧义、bowl 16 帧重遮挡 no-converge + 1 帧选择失败（EXP-006）。
@@ -47,7 +47,7 @@
 | 1 3D Geometry | 相机模型/RGB-D/点云/坐标变换/SE(3)/旋转表示 | 输入 RGB-D 正确生成点云并完成坐标系转换与可视化 | **完成**（BOP 子集验证 + 数据验证报告） |
 | 2 Classical Pose | 几何路线：mask→PCA/OBB 24 假设→point-to-plane ICP（SIFT+PnP 路线已证伪，见 EXP-002/003/004） | ≥1 个 YCB-V 物体跑通完整 pipeline 并获得标准评价结果 | **完成（P2.4，oracle mask 受控条件）** |
 | 3 Learning Pose | 自研学习对应路线（CoordNet，合成训练） | 学习基线稳定训练并在测试数据输出合理 6D 位姿 | **关闭**（Gate 3 NO-GO + P3.1-C/D/E/F/G 诊断收束，见 D10） |
-| 4 FoundationPose | 安装/推理/评测适配/对比 | FoundationPose 进入统一实验体系 | **进行中**（本地集成完成，EXP-013 runtime 待 3090） |
+| 4 FoundationPose | 安装/推理/评测适配/对比 | FoundationPose 进入统一实验体系 | **已完成**（EXP-013：5/5 成功，中位 ADD 2.64mm，2026-09-17 @ RTX 4090） |
 | 5 鲁棒性研究 | 遮挡/噪声实验/失败分析/一个改进/Ablation | 得到有明确实验依据的改进并验证有效 | 未开始 |
 | 6 工程包装 | 重构/测试/CLI/文档/Demo/报告 | 别人能理解、运行、展示；本人能讲清楚 | 未开始 |
 
@@ -58,7 +58,7 @@ Classical / Geometry Baseline（P2，冻结，93.3% / 77.3%）
         ↓  对照组
 Diagnostic Route（P3.1-C/D/E/F/G，已收束——自研学习路线关闭的依据）
         ↓
-FoundationPose（Phase 4 起的主要 model-based baseline，EXP-013，runtime 待 3090）
+FoundationPose（主要 model-based baseline，EXP-013 已执行：5/5，中位 ADD 2.64mm）
 ```
 
 自研学习路线（CoordNet）已于 Gate 3 NO-GO + P3.1 诊断链完成后关闭（决策 D10）；

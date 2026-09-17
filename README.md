@@ -38,7 +38,7 @@ flowchart TD
     E --> F["Diagnosis chain P3.1-C/D/E/F/G<br/>single fixed ~176.5° canonical rotation explains<br/>all failures · frames identical · geometry-driven ·<br/>1 mm noise augmentation not supported"]
     F --> G["Route closed (decision D10)"]
     A --> H["FoundationPose baseline<br/>model-based register (GT-free), EXP-013"]
-    H --> I["⏳ pending GPU execution"]
+    H --> I["✅ EXP-013 executed: 5/5, median ADD 2.64mm"]
 ```
 
 ## Key Results
@@ -88,11 +88,15 @@ The diagnosis chain that followed localized the failure precisely
 
 ![Learning route diagnosis](docs/assets/learning_route_diagnosis.jpg)
 
-### FoundationPose (model-based reference baseline)
+### FoundationPose (model-based reference baseline) — **EXP-013 executed**
 
-Local integration complete (adapter, evaluation wrapper, frozen EXP-013 config, mock
-pipeline verified end-to-end, 3090 runner with environment gating). Runtime execution is
-**pending GPU machine availability** — no results exist yet and none are claimed.
+Official NVlabs implementation, model-based register (zero training, GT-free inference),
+oracle mask — same frozen protocol as P2. **EXP-013 (5 frozen frames, obj5/scene 50):
+5/5 success, median ADD 2.64mm** (per-frame 1.8–3.9mm; register ~0.9s/frame on RTX 4090,
+executed fully offline via WSL2 + conda toolchain). Same-frame comparison: P2 Classical
+5/5 at median ADD 1.03mm — classical is more accurate on these frames; FP's value is
+zero-training generalization (full comparison: Phase 5). Archive:
+`outputs/phase4_foundationpose/delivery_back/`.
 
 ![Geometry distribution audit](docs/assets/geometry_distribution_audit.png)
 
@@ -127,7 +131,7 @@ observation** on small flat objects (tuna can: attempted = 0 at 10 and at 75 fra
 **(C) ICP non-convergence** on low-texture concave surfaces (mug 0/75 pose). Strengths:
 complex textured mechanisms (drill 100%) and elongated asymmetric objects (banana,
 95.2% conditional). The EXP-014 → EXP-015 comparison kept every failure-tag set
-unchanged. These boundaries motivate the model-based comparison (EXP-013, pending 3090).
+unchanged. These boundaries motivate the model-based comparison (EXP-013: executed, see below).
 Full record: `EXPERIMENT_LOG.md` EXP-014/015 · table: `outputs/w2_4/unified_table.md`
 · comparison: `outputs/w2_4/w2_3_vs_w2_4_comparison.md` · envelope:
 `docs/BASELINE_OPERATING_ENVELOPE.md` (incl. freeze record §6).
@@ -206,7 +210,7 @@ Stated as current controlled scope and planned work — not as defects:
   to isolate the pose variable.
 - **Controlled experiments** dominate so far: robustness perturbation studies
   (occlusion / depth noise) are Phase 5, not yet executed.
-- FoundationPose runtime execution is **pending a GPU machine**; no FP numbers exist yet.
+- FoundationPose EXP-013 executed (5/5, median ADD 2.64mm) — full comparison in Phase 5.
 - The self-developed learning route is **closed** with a complete attribution chain; any
   restart would require a new approved design (orientation-anchor / equivariance work).
 
@@ -235,9 +239,8 @@ Stated as current controlled scope and planned work — not as defects:
 
 ## Next Step
 
-Run **EXP-013** (FoundationPose feasibility, obj5 × 5 frozen frames) on the GPU machine —
-project-side integration is complete and gated by
-`scripts/foundationpose_env_check.py`; then Phase 5 robustness studies.
+EXP-013 (FoundationPose feasibility) executed 2026-09-17 — see Key Results. Next:
+Phase 5 robustness studies.
 
 ## License
 
