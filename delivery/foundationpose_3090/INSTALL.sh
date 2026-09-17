@@ -199,12 +199,12 @@ import torch.utils.cpp_extension as ce
 root = '/mnt/e/robot-3d-perception/offline_packages/nvdiffrast-src'
 os.chdir(root)
 sources = sorted(
-    glob.glob('nvdiffrast/csrc/common/*.cu') + glob.glob('nvdiffrast/csrc/common/*.cpp') +
-    glob.glob('nvdiffrast/csrc/torch/*.cpp'))
+    glob.glob('csrc/common/*.cu') + glob.glob('csrc/common/*.cpp') +
+    glob.glob('csrc/torch/*.cpp'))
 assert sources, 'csrc sources not found in ' + root
 print('  编译 _nvdiffrast_c（%d 个源文件，约 5-10 分钟，大量输出属正常）...' % len(sources))
 mod = ce.load(name='_nvdiffrast_c', sources=sources, verbose=True,
-              extra_include_paths=[os.path.abspath('nvdiffrast/csrc/common/cudaraster')],
+              extra_include_paths=[os.path.abspath('csrc/common/cudaraster')],
               extra_cflags=['-DNVDR_TORCH'], extra_cuda_cflags=['-DNVDR_TORCH'])
 site = sysconfig.get_paths()['purelib']
 built = os.path.join(ce._get_build_directory('_nvdiffrast_c', False), '_nvdiffrast_c.so')
