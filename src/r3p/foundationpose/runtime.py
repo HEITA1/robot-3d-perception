@@ -93,8 +93,11 @@ class FoundationPoseRuntime:
         pts_m = np.asarray(mesh.vertices, dtype=np.float64)
         assert_mesh_units_plausible(pts_m)  # meter-band guard (double-conversion tripwire)
 
+        # debug_dir 必须显式给定：官方默认硬编码在原作者家目录（/home/bowen），
+        # 3090 实测 PermissionError（incident：rizhi.txt 2026-09-17）
         self._estimater = estimater.FoundationPose(
             model_pts=model_pts, model_normals=model_normals, mesh=mesh,
+            debug=0, debug_dir='/tmp/fp_debug_nvd',
         )
         if not hasattr(self._estimater, "register"):
             raise FoundationPoseRuntimeUnavailable(
