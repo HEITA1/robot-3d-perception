@@ -11,6 +11,7 @@
 dataset_info.md                                  # 物体名称表——数据集接口必需（缺它 YcbvBopDataset 直接报错）
 
 models/obj_000005.ply                            # obj5 mesh（mm；adapter 在运行时 ×1e-3 转米，恰好一次）
+models/obj_000005.png                            # obj5 纹理（6.7MB）——FP 加载 mesh 时必需，缺它 FileNotFoundError
 models/models_info.json                          # 官方 diameter（196.463mm → 阈值 19.65mm）
 
 test/000050/scene_camera.json                    # 逐帧内参 K + depth_scale=0.1
