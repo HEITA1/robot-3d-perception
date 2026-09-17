@@ -189,6 +189,30 @@ if [ -d "$OFFLINE_DIR/nvdiffrast-src/nvdiffrast" ]; then
   printf 'pip\n' > "$DIST/INSTALLER"
   "$PYTHON" -c "import nvdiffrast; print('nvdiffrast (JIT mode):', nvdiffrast.__file__)" \
     || die "nvdiffrast 复制后 import 失败"
+  # AOT 扩展 _nvdiffrast_c：torch/ops.py 无条件 import 它——本版 nvdiffrast 把编译
+  # 放在安装期（setup.py），这里用 torch cpp_extension 以完全相同的源与标志编译
+  # 一次，产物放入 site-packages（3090 实测：缺它则 nvdiffrast.torch 无法导入）
+  "$PYTHON" - <<'PYBUILD'
+import glob, os, shutil, sys, sysconfig
+import torch.utils.cpp_extension as ce
+
+root = '/mnt/e/robot-3d-perception/offline_packages/nvdiffrast-src'
+os.chdir(root)
+sources = sorted(
+    glob.glob('nvdiffrast/csrc/common/*.cu') + glob.glob('nvdiffrast/csrc/common/*.cpp') +
+    glob.glob('nvdiffrast/csrc/torch/*.cpp'))
+assert sources, 'csrc sources not found in ' + root
+print('  编译 _nvdiffrast_c（%d 个源文件，约 5-10 分钟，大量输出属正常）...' % len(sources))
+mod = ce.load(name='_nvdiffrast_c', sources=sources, verbose=True,
+              extra_include_paths=[os.path.abspath('nvdiffrast/csrc/common/cudaraster')],
+              extra_cflags=['-DNVDR_TORCH'], extra_cuda_cflags=['-DNVDR_TORCH'])
+site = sysconfig.get_paths()['purelib']
+built = os.path.join(ce._get_build_directory('_nvdiffrast_c', False), '_nvdiffrast_c.so')
+shutil.copy2(built, os.path.join(site, '_nvdiffrast_c.so'))
+print('  _nvdiffrast_c.so ->', os.path.join(site, '_nvdiffrast_c.so'))
+PYBUILD
+  "$PYTHON" -c "import _nvdiffrast_c; import nvdiffrast.torch; print('nvdiffrast.torch import OK')" \
+    || die "_nvdiffrast_c 编译后仍无法导入——发回完整日志"
 elif [ -f "$FP_REPO_ROOT/build_all_conda.sh" ]; then
   (cd "$FP_REPO_ROOT" && bash build_all_conda.sh) || die "官方 build_all_conda.sh 失败——检查 gcc/CUDA_HOME 匹配"
 else
