@@ -212,7 +212,7 @@ built = os.path.join(ce._get_build_directory('_nvdiffrast_c', False), '_nvdiffra
 shutil.copy2(built, os.path.join(site, '_nvdiffrast_c.so'))
 print('  _nvdiffrast_c.so ->', os.path.join(site, '_nvdiffrast_c.so'))
 PYBUILD
-  "$PYTHON" -c "import _nvdiffrast_c; import nvdiffrast.torch; print('nvdiffrast.torch import OK')" \
+  "$PYTHON" -c "import torch; import _nvdiffrast_c; import nvdiffrast.torch; print('nvdiffrast.torch import OK')" \
     || die "_nvdiffrast_c 编译后仍无法导入——发回完整日志"
 elif [ -f "$FP_REPO_ROOT/build_all_conda.sh" ]; then
   (cd "$FP_REPO_ROOT" && bash build_all_conda.sh) || die "官方 build_all_conda.sh 失败——检查 gcc/CUDA_HOME 匹配"
