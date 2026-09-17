@@ -200,6 +200,7 @@ root = '/mnt/e/robot-3d-perception/offline_packages/nvdiffrast-src'
 os.chdir(root)
 sources = sorted(
     glob.glob('csrc/common/*.cu') + glob.glob('csrc/common/*.cpp') +
+    glob.glob('csrc/common/cudaraster/impl/*.cpp') + glob.glob('csrc/common/cudaraster/impl/*.cu') +
     glob.glob('csrc/torch/*.cpp'))
 assert sources, 'csrc sources not found in ' + root
 print('  编译 _nvdiffrast_c（%d 个源文件，约 5-10 分钟，大量输出属正常）...' % len(sources))
